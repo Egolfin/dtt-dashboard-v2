@@ -11,18 +11,48 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { darkbg: '#090d16', cardbg: '#111827', bordercolor: '#1f2937' } } } }
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { colors: { darkbg: '#090d16', cardbg: '#111827', bordercolor: '#1f2937' } }
+            }
+        }
     </script>
     <!-- PapaParse & SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background-color: #090d16; color: #f3f4f6; }
+        .heat-red { background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .heat-yellow { background-color: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .heat-green { background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .glass-card { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .btn-period { transition: all 0.2s ease; }
+        .btn-period.active { background-color: #6366f1; color: #ffffff; border-color: #6366f1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
+        .tab-btn { transition: all 0.2s ease; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-color: #6366f1; color: #818cf8; font-weight: 600; }
+        .sticky-col { position: sticky; left: 0; z-index: 20; background-color: #0d1322; }
+        th.sticky-col { z-index: 30; background-color: #111827; }
+        .sticky-header { position: sticky; top: 0; z-index: 25; background-color: #111827; }
+
+        @media print {
+            @page { size: letter landscape; margin: 0.3in; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background-color: #090d16 !important; color: #f3f4f6 !important; }
+            header, section:not(.print-container), #sharedTopSection, #mainTabNav { display: none !important; }
+            .print-container { display: block !important; border: 1px solid #1f2937 !important; background-color: #090d16 !important; padding: 10px !important; }
+            table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #1f2937 !important; }
+            th, td { border: 1px solid #1f2937 !important; padding: 6px 8px !important; color: #f3f4f6 !important; font-size: 10px !important; background-color: #0d1322 !important; }
+            th { background-color: #111827 !important; color: #9ca3af !important; font-weight: bold !important; text-transform: uppercase !important; }
+            .heat-red { background-color: rgba(239, 68, 68, 0.25) !important; color: #fca5a5 !important; border: 1px solid rgba(239, 68, 68, 0.5) !important; }
+            .heat-yellow { background-color: rgba(245, 158, 11, 0.25) !important; color: #fde68a !important; border: 1px solid rgba(245, 158, 11, 0.5) !important; }
+            .heat-green { background-color: rgba(16, 185, 129, 0.25) !important; color: #6ee7b7 !important; border: 1px solid rgba(16, 185, 129, 0.5) !important; }
+        }
+    </style>
 </head>
 <body class="min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
-    <!-- Header & Navigation -->
     <header class="border-b border-gray-800/80 bg-gray-950/50 backdrop-blur-md sticky top-0 z-50 py-3.5 px-6">
         <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center gap-3">
@@ -47,20 +77,190 @@
                 </div>
             </div>
 
-            <!-- Tab Navigation -->
             <div id="mainTabNav" class="flex items-center gap-6 text-xs border-b border-gray-800">
-                <button onclick="app.switchTab('matrix')" id="tab-matrix" class="tab-btn active pb-3 px-2 text-gray-300 hover:text-white font-medium">📊 DTT Matrix</button>
-                <button onclick="app.switchTab('metrics')" id="tab-metrics" class="tab-btn pb-3 px-2 text-gray-400 hover:text-white font-medium">🎯 Advanced Metrics</button>
-                <button onclick="app.switchTab('manual')" id="tab-manual" class="tab-btn pb-3 px-2 text-gray-400 hover:text-white font-medium">📝 Manual Records <span id="manualBadgeCount" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold ml-1">0</span></button>
+                <button id="tab-matrix" onclick="app.switchTab('matrix')" class="tab-btn active pb-3 px-2 text-gray-300 hover:text-white font-medium">📊 DTT Matrix</button>
+                <button id="tab-metrics" onclick="app.switchTab('metrics')" class="tab-btn pb-3 px-2 text-gray-400 hover:text-white font-medium">🎯 Advanced Metrics</button>
+                <button id="tab-manual" onclick="app.switchTab('manual')" class="tab-btn pb-3 px-2 text-gray-400 hover:text-white font-medium flex items-center gap-1.5">
+                    📝 Manual Records <span id="manualBadgeCount" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
+            </div>
+
+            <div id="statsBar" class="hidden flex items-center gap-6 text-xs bg-gray-900/80 border border-gray-800 rounded-xl px-4 py-2">
+                <div><span class="text-gray-500 block uppercase tracking-wider font-semibold">Total Calls</span><span id="statTotalCalls" class="text-sm font-bold text-indigo-400">0</span></div>
+                <div class="h-6 w-px bg-gray-800"></div>
+                <div><span class="text-gray-500 block uppercase tracking-wider font-semibold">Active Reps</span><span id="statActiveReps" class="text-sm font-bold text-purple-400">0</span></div>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" id="app-container">
-        <!-- Views will be injected here dynamically by JavaScript -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- SHARED TOP CONTROLS (Visible on Matrix & Metrics Tabs) -->
+        <div id="sharedTopSection" class="space-y-8">
+            <section class="glass-card rounded-2xl p-8 text-center border border-gray-800 hover:border-indigo-500/50 transition-all duration-300">
+                <div id="dropZone" class="cursor-pointer group">
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+                    <div class="mx-auto h-14 w-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all">
+                        <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    </div>
+                    <h3 class="text-base font-semibold text-gray-200 mt-4">Drop outreach call report CSV here</h3>
+                    <p class="text-xs text-gray-500 mt-1">or click to browse from computer (data & manual entries save automatically)</p>
+                    <p id="fileNameDisplay" class="text-xs font-mono text-indigo-400 mt-3 hidden"></p>
+                </div>
+            </section>
+
+            <div id="appControls" class="hidden space-y-6">
+                <section class="glass-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="btnWeekly" onclick="app.setPresetPeriod('weekly')" class="btn-period active px-4 py-2 rounded-xl text-xs font-semibold border border-gray-800 bg-gray-900 text-gray-300 hover:text-white">Weekly</button>
+                        <button id="btnMonthly" onclick="app.setPresetPeriod('monthly')" class="btn-period px-4 py-2 rounded-xl text-xs font-semibold border border-gray-800 bg-gray-900 text-gray-300 hover:text-white">Monthly</button>
+                        <button id="btnQTD" onclick="app.setPresetPeriod('qtd')" class="btn-period px-4 py-2 rounded-xl text-xs font-semibold border border-gray-800 bg-gray-900 text-gray-300 hover:text-white">Quarter to Date</button>
+                        <button id="btnCustom" onclick="app.setPresetPeriod('custom')" class="btn-period px-4 py-2 rounded-xl text-xs font-semibold border border-gray-800 bg-gray-900 text-gray-300 hover:text-white">Date Range</button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <select id="teamSelect" onchange="app.renderActiveTab()" class="bg-gray-900 border border-gray-800 text-indigo-300 font-medium rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500">
+                            <option value="ALL">All Teams (Managers)</option>
+                            <option value="Alejandro Bustos">Alejandro Bustos' Team</option>
+                            <option value="Emmanuel Jara">Emmanuel Jara's Team</option>
+                            <option value="Ericka Jimenez">Ericka Jimenez's Team</option>
+                            <option value="Maria Jose Herrera">Maria Jose Herrera's Team</option>
+                            <option value="Pamela Robles">Pamela Robles' Team</option>
+                            <option value="Samuel Soto">Samuel Soto's Team</option>
+                            <option value="Saúl Chaves">Saúl Chaves' Team</option>
+                        </select>
+                        <input type="text" id="searchRep" oninput="app.renderActiveTab()" placeholder="Search rep..." class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 flex-1 sm:w-36">
+                        <button id="exportPdfBtn" class="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>PDF</button>
+                        <button id="exportBtn" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Excel</button>
+                    </div>
+                </section>
+
+                <section id="qtdSection" class="glass-card rounded-2xl p-4 hidden">
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="text-gray-400 font-medium">Select Quarter:</span>
+                        <select id="quarterSelect" onchange="app.setPresetPeriod('qtd')" class="bg-gray-900 border border-gray-800 text-indigo-400 font-semibold rounded-xl px-3 py-1.5 focus:border-indigo-500 outline-none">
+                            <option value="1">Q1 (Jan - Mar)</option><option value="2">Q2 (Apr - Jun)</option><option value="3">Q3 (Jul - Sep)</option><option value="4">Q4 (Oct - Dec)</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section id="customDateSection" class="glass-card rounded-2xl p-4 hidden">
+                    <div class="flex flex-wrap items-center gap-4 text-xs">
+                        <span class="text-gray-400 font-medium">Custom Range:</span>
+                        <input type="date" id="startDate" onchange="app.renderActiveTab()" class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-1.5 text-gray-200 focus:border-indigo-500">
+                        <span class="text-gray-600">to</span>
+                        <input type="date" id="endDate" onchange="app.renderActiveTab()" class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-1.5 text-gray-200 focus:border-indigo-500">
+                    </div>
+                </section>
+
+                <section class="glass-card rounded-2xl p-5 border border-indigo-500/20">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-2"><span>+ Add Zoom / Google Meet DTT</span></h3>
+                    </div>
+                    <form id="manualDTTForm" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <input type="text" id="manualRepInput" list="repOptions" placeholder="Rep Name" required class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                        <datalist id="repOptions"></datalist>
+                        <input type="date" id="manualDateInput" required class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                        <input type="number" id="manualMinutesInput" step="0.01" min="0.01" placeholder="DTT Minutes (e.g. 64.98)" required class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded-xl text-xs transition shadow-lg shadow-indigo-600/20">Add Minutes</button>
+                    </form>
+                </section>
+            </div>
+        </div>
+
+        <!-- TAB 1: MATRIX VIEW CONTENT -->
+        <div id="matrixTableSection" class="hidden">
+            <section id="pdfContainer" class="glass-card rounded-2xl border border-gray-800 p-2 print-container">
+                <div class="p-4 border-b border-gray-800/80 bg-gray-900/40 flex flex-wrap items-center justify-between gap-4 text-xs print-header">
+                    <div>
+                        <h2 class="font-semibold text-gray-200 text-base" id="reportHeaderTitle">DTT Performance Summary</h2>
+                        <p class="text-[11px] text-gray-400" id="reportSubtitle">Formula: (Duration/60) + 1 min buffer per call</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="px-2 py-0.5 rounded text-[10px] heat-red">&lt; 50m</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] heat-yellow">50m - 69m</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] heat-green">&ge; 70m</span>
+                        <span class="text-gray-400 border-l border-gray-800 pl-3">Target: 350m/week</span>
+                    </div>
+                </div>
+                <div id="tableScrollWrapper" class="overflow-auto max-h-[600px] relative">
+                    <table id="dttTable" class="w-full text-xs text-left border-collapse">
+                        <thead id="tableHead" class="bg-gray-900/90 text-gray-400 uppercase tracking-wider text-[11px] font-semibold border-b border-gray-800 sticky-header"></thead>
+                        <tbody id="tableBody" class="divide-y divide-gray-800/60 font-mono"></tbody>
+                        <tfoot id="tableFoot" class="bg-gray-900/90 font-bold border-t border-gray-800 text-gray-200"></tfoot>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 2: ADVANCED METRICS CONTENT -->
+        <div id="metricsTableSection" class="hidden">
+            <section id="metricsPdfContainer" class="glass-card rounded-2xl border border-gray-800 p-2 print-container">
+                <div class="p-4 border-b border-gray-800/80 bg-gray-900/40 flex flex-wrap items-center justify-between gap-4 text-xs print-header">
+                    <div>
+                        <h2 class="font-semibold text-gray-200 text-base">Decision Maker Connect Rate</h2>
+                        <p class="text-[11px] text-gray-400" id="metricsDateRange">Target: > 15%</p>
+                    </div>
+                </div>
+                <div class="overflow-auto max-h-[600px] relative">
+                    <table id="metricsTable" class="w-full text-xs text-left border-collapse">
+                        <thead id="metricsTableHead" class="bg-gray-900/90 text-gray-400 uppercase tracking-wider text-[11px] font-semibold border-b border-gray-800 sticky-header"></thead>
+                        <tbody id="metricsTableBody" class="divide-y divide-gray-800/60 font-mono"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 3: MANUAL DTT RECORDS TAB -->
+        <div id="manualTabView" class="hidden space-y-6">
+            <section class="glass-card rounded-2xl p-6 border border-indigo-500/20">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-200">Manual DTT Log Repository</h2>
+                        <p class="text-xs text-gray-400 mt-0.5">Record and manage all Zoom / Google Meet meeting minutes. Entries persist across all CSV uploads.</p>
+                    </div>
+                    <button id="exportManualExcelBtn" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-medium py-2 px-4 rounded-xl text-xs transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Export Manual Records
+                    </button>
+                </div>
+                <form id="manualDTTFormTab" class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-gray-900/50 p-4 rounded-xl border border-gray-800">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Rep Name</label>
+                        <input type="text" id="manualRepInputTab" list="repOptions" placeholder="Type rep name..." required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Date</label>
+                        <input type="date" id="manualDateInputTab" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Minutes</label>
+                        <input type="number" id="manualMinutesInputTab" step="0.01" min="0.01" placeholder="e.g. 64.98" required class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:border-indigo-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded-xl text-xs transition shadow-lg shadow-indigo-600/20">+ Add Manual Record</button>
+                    </div>
+                </form>
+            </section>
+            
+            <section class="glass-card rounded-2xl overflow-hidden border border-gray-800 print-container">
+                <div class="p-4 border-b border-gray-800 bg-gray-900/40 flex justify-between items-center">
+                    <h3 class="text-xs font-semibold text-gray-300 uppercase tracking-wider">All Saved Manual Entries</h3>
+                    <span id="manualTableCount" class="text-xs text-gray-500 font-mono">Total Records: 0</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead class="bg-gray-900/90 text-gray-400 uppercase tracking-wider text-[11px] font-semibold border-b border-gray-800">
+                            <tr><th class="py-3 px-4">Rep Name</th><th class="py-3 px-4">Date</th><th class="py-3 px-4 text-center">DTT Minutes</th><th class="py-3 px-4 text-center">Logged Timestamp</th><th class="py-3 px-4 text-right">Action</th></tr>
+                        </thead>
+                        <tbody id="manualRecordsTableBody" class="divide-y divide-gray-800/60 font-mono text-gray-300"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
     </main>
 
-    <!-- App Scripts -->
+    <!-- Scripts -->
     <script src="js/data.js"></script>
     <script src="js/metrics.js"></script>
     <script src="js/ui.js"></script>
