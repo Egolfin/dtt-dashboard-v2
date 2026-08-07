@@ -1,0 +1,13 @@
+/* css/style.css */
+.heat-red { background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+.heat-yellow { background-color: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.4); }
+.heat-green { background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+.glass-card { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+
+.tab-btn { transition: all 0.2s ease; border-bottom: 2px solid transparent; }
+.tab-btn.active { border-color: #6366f1; color: #818cf8; font-weight: 600; }
+
+.sticky-col { position: sticky; left: 0; z-index: 20; background-color: #0d1322; }
+th.sticky-col { z-index: 30; background-color: #111827; }
+.sticky-header { position: sticky; top: 0; z-index: 25; background-color: #111827; }
