@@ -94,8 +94,6 @@ async function saveAppState() {
         const db = await openDB();
         const tx = db.transaction('app_state', 'readwrite');
         const store = tx.objectStore('app_state');
-        
-        // Convert Set to Array before saving
         const stateToSave = { ...window.AppState, allKnownReps: Array.from(window.AppState.allKnownReps) };
         store.put(stateToSave, 'current_data');
     } catch (err) {
@@ -119,9 +117,9 @@ function processCSVData(data) {
         let dateStr = row['Created At'] || row['Completed At'] || row['Date'] || '';
         let parsedDate = parseDateString(dateStr);
 
-        // NEW: Capture Purpose and State for Advanced Metrics
         let purpose = (row['Purpose'] || '').trim();
-        let state = (row['State'] || '').trim().toLowerCase();
+        // Track the actual disposition rather than the generic state
+        let disposition = (row['Disposition'] || '').trim().toLowerCase();
 
         if (repName && parsedDate) {
             let dtt = (durationSec / 60.0) + 1.0;
@@ -130,8 +128,8 @@ function processCSVData(data) {
                 rep: repName, 
                 date: parsedDate, 
                 dtt: dtt,
-                purpose: purpose,   // For tracking Decision Maker Connects
-                state: state        // 'completed', 'no_answer', etc.
+                purpose: purpose,
+                disposition: disposition 
             });
             window.AppState.allKnownReps.add(repName);
         }
