@@ -7,13 +7,21 @@ window.AppMetrics = {
     
     /**
      * Calculates Decision Maker Connect Rate for a specific date range, team, and rep.
-     * Formula: (Completed DM Calls / Total DM Calls) * 100
+     * Formula: (True DM Connects / Total DM Calls) * 100
      */
     getDecisionMakerConnectRate: function(startDate, endDate, searchRep, selectedTeam) {
         let totalDMCalls = 0;
         let connectedDMCalls = 0;
         
-        // Iterate through raw call data from our Data Engine
+        // Define dispositions that do NOT count as a connect
+        const nonConnects = [
+            'left voicemail', 
+            'no answer', 
+            'left message', 
+            'incorrect phone number',
+            '' // Ignore blank dispositions (failed dials, canceled, etc.)
+        ];
+        
         window.AppState.rawCallData.forEach(call => {
             
             // 1. Check if the call falls within our active filters
@@ -25,15 +33,16 @@ window.AppMetrics = {
                 if (call.purpose.toLowerCase() === 'decision maker call') {
                     totalDMCalls++;
                     
-                    // 3. Check if the call was actually answered/completed
-                    if (call.state === 'completed') {
+                    // 3. A true connect is when a human answers, meaning the disposition
+                    // is NOT in our nonConnects list.
+                    if (call.disposition && !nonConnects.includes(call.disposition)) {
                         connectedDMCalls++;
                     }
                 }
             }
         });
 
-        // Calculate percentage securely (avoiding division by zero errors)
+        // Calculate percentage securely
         let connectRate = totalDMCalls > 0 ? ((connectedDMCalls / totalDMCalls) * 100).toFixed(1) : 0;
 
         return {
