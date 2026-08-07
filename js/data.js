@@ -16,7 +16,6 @@ window.AppState = {
     endDateStr: ''
 };
 
-// --- TEAM / MANAGER MAPPING ---
 const teamMapping = {
     "Alejandro Bustos": ["Allen Hodgson", "Walter Salazar", "Alejandro Fonseca", "Kevin Cordero", "Valentina Henriquez", "Esteban Robles", "Cristhian Castro", "Jose Gonzalez", "Kiara Molina", "Sharon Mora", "Eduardo Murillo", "Fabiana Quiros", "Jeremy Chaves"],
     "Emmanuel Jara": ["Bryan Garcia", "Kiurwen West", "Gareck Zuniga", "Gareck Zuñiga", "Sebastian Hernandez", "Sergio Villegas", "Erick Pacheco", "Kiara Blanco", "Valeria Carvajal", "Alejandro Monge", "Aaron Gomez", "Aaron Gómez", "Hector Arroyo", "Felipe Sancho", "Francis Viales"],
@@ -27,17 +26,13 @@ const teamMapping = {
     "Saúl Chaves": ["Bruno Lara", "Santiago Ramirez", "Ricardo Urena", "Ricardo Ureña", "Maricela Miranda", "Alvaro Porras", "Camila Zeledon", "Victoria Castillo", "Juan Hernandez", "Sergio Rosales", "Pablo Cantillo", "Pablo Cantillo Ramirez", "Joshua Nunez", "Joshua Nuñez", "Marck Ali", "Ruben Delgado"]
 };
 
-// --- HELPER FUNCTIONS ---
-function normalizeName(str) {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-}
+function normalizeName(str) { return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
 
 function isRepInTeam(repName, teamManager) {
     if (teamManager === 'ALL') return true;
     const members = teamMapping[teamManager];
     if (!members) return true;
-    const normRep = normalizeName(repName);
-    return members.some(m => normalizeName(m) === normRep);
+    return members.some(m => normalizeName(m) === normalizeName(repName));
 }
 
 function parseDateString(str) {
@@ -53,9 +48,7 @@ function parseDateString(str) {
         if (month) return `${textMatch[3]}-${month}-${textMatch[2].padStart(2, '0')}`;
     }
     let d = new Date(str);
-    if (!isNaN(d.getTime())) {
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
+    if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return null;
 }
 
@@ -73,7 +66,6 @@ function refreshDateFilterOptions() {
     window.AppState.parsedDates = [...new Set(allDates)];
 }
 
-// --- INDEXED DB STORAGE ---
 const DB_NAME = 'DTT_Analytics_Pro_DB';
 const DB_VERSION = 1;
 
@@ -96,12 +88,9 @@ async function saveAppState() {
         const store = tx.objectStore('app_state');
         const stateToSave = { ...window.AppState, allKnownReps: Array.from(window.AppState.allKnownReps) };
         store.put(stateToSave, 'current_data');
-    } catch (err) {
-        console.error('Failed to save state:', err);
-    }
+    } catch (err) { console.error('Failed to save state:', err); }
 }
 
-// --- CSV PROCESSING ENGINE ---
 function processCSVData(data) {
     window.AppState.rawCallData = [];
     window.AppState.allKnownReps.clear();
@@ -118,8 +107,10 @@ function processCSVData(data) {
         let parsedDate = parseDateString(dateStr);
 
         let purpose = (row['Purpose'] || '').trim();
-        // Track the actual disposition rather than the generic state
         let disposition = (row['Disposition'] || '').trim().toLowerCase();
+        
+        // NEW: Grab the call notes and make them lowercase for easy keyword searching
+        let note = (row['Note'] || '').trim().toLowerCase();
 
         if (repName && parsedDate) {
             let dtt = (durationSec / 60.0) + 1.0;
@@ -129,7 +120,8 @@ function processCSVData(data) {
                 date: parsedDate, 
                 dtt: dtt,
                 purpose: purpose,
-                disposition: disposition 
+                disposition: disposition,
+                note: note 
             });
             window.AppState.allKnownReps.add(repName);
         }
