@@ -4,67 +4,196 @@
 // ==========================================
 
 window.AppUI = {
-    renderMetricsTab: function(startDateStr, endDateStr, searchRep, selectedTeam) {
-        const thead = document.getElementById('metricsTableHead');
-        const tbody = document.getElementById('metricsTableBody');
-        
-        document.getElementById('metricsDateRange').textContent = `Target: > 15% Connect Rate | Date Range: ${startDateStr} to ${endDateStr}`;
 
-        thead.innerHTML = `
-            <tr>
-                <th class="py-3 px-4 sticky-col">Rep Name</th>
-                <th class="py-3 px-4 text-center">Total DM Calls</th>
-                <th class="py-3 px-4 text-center">Connected DM Calls</th>
-                <th class="py-3 px-4 text-center">Connect Rate %</th>
-                <th class="py-3 px-4 text-center border-l border-gray-800">Est. Sales</th>
-                <th class="py-3 px-4 text-center">Conversion Rate %</th>
-            </tr>
-        `;
+    renderMetricsTab:
+        function(
+            startDateStr,
+            endDateStr,
+            searchRep,
+            selectedTeam
+        ) {
 
-        let bodyHTML = '';
-        const sortedReps = Array.from(window.AppState.allKnownReps).sort();
-        let hasData = false;
+            const thead =
+                document.getElementById(
+                    'metricsTableHead'
+                );
 
-        sortedReps.forEach(rep => {
-            if (rep.toLowerCase().includes(searchRep.toLowerCase()) && isRepInTeam(rep, selectedTeam)) {
-                
-                const metrics = window.AppMetrics.getDecisionMakerConnectRate(startDateStr, endDateStr, rep, selectedTeam);
-                
-                if (metrics.total > 0) {
-                    hasData = true;
-                    
-                    // Colors for Connect Rate
-                    let rateColor = metrics.rate >= 15 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 
-                                    metrics.rate >= 10 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 
-                                    'text-rose-400 bg-rose-500/10 border-rose-500/20';
+            const tbody =
+                document.getElementById(
+                    'metricsTableBody'
+                );
 
-                    // Colors for Conversion Rate (Assuming > 10% is good)
-                    let convColor = metrics.conversionRate >= 10 ? 'text-emerald-400 font-bold' : 
-                                    metrics.conversionRate > 0 ? 'text-amber-400 font-bold' : 
-                                    'text-gray-500';
 
-                    bodyHTML += `
-                        <tr class="hover:bg-gray-800/30 transition">
-                            <td class="py-3 px-4 font-sans font-medium text-gray-200 sticky-col">${rep}</td>
-                            <td class="py-3 px-4 text-center text-gray-400">${metrics.total}</td>
-                            <td class="py-3 px-4 text-center text-gray-300 font-bold">${metrics.connected}</td>
-                            <td class="py-3 px-4 text-center">
-                                <span class="px-2.5 py-1 rounded font-bold ${rateColor} border">
-                                    ${metrics.rate}%
-                                </span>
-                            </td>
-                            <td class="py-3 px-4 text-center text-indigo-300 font-bold border-l border-gray-800/50">${metrics.sales}</td>
-                            <td class="py-3 px-4 text-center ${convColor}">${metrics.conversionRate}%</td>
-                        </tr>
-                    `;
+            document.getElementById(
+                'metricsDateRange'
+            ).textContent =
+                `Strict Conversion: Sponsored Listings + Promotions | Date Range: ${startDateStr} to ${endDateStr}`;
+
+
+            thead.innerHTML = `
+                <tr>
+                    <th class="py-3 px-4 sticky-col">
+                        Rep Name
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Total DM Calls
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Connected DM Calls
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Connect Rate %
+                    </th>
+
+                    <th class="py-3 px-4 text-center border-l border-gray-800">
+                        Converted DM Calls
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Committed
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Ambiguous
+                    </th>
+
+                    <th class="py-3 px-4 text-center">
+                        Conversion Rate %
+                    </th>
+                </tr>
+            `;
+
+
+            let bodyHTML = '';
+
+            const sortedReps =
+                Array.from(
+                    window.AppState.allKnownReps
+                ).sort();
+
+            let hasData = false;
+
+
+            sortedReps.forEach(rep => {
+
+                /*
+                    UI search remains substring based.
+                    The metrics engine itself uses exact normalized
+                    rep equality when calculating the KPI.
+                */
+
+                if (
+                    rep.toLowerCase()
+                        .includes(
+                            searchRep.toLowerCase()
+                        ) &&
+                    isRepInTeam(
+                        rep,
+                        selectedTeam
+                    )
+                ) {
+
+                    const metrics =
+                        window.AppMetrics
+                            .getDecisionMakerConnectRate(
+                                startDateStr,
+                                endDateStr,
+                                rep,
+                                selectedTeam
+                            );
+
+
+                    if (metrics.total > 0) {
+
+                        hasData = true;
+
+
+                        // ------------------------------------------
+                        // CONNECT RATE COLORS
+                        // ------------------------------------------
+
+                        const rateColor =
+                            metrics.rate >= 15
+                                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                : metrics.rate >= 10
+                                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                    : 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+
+
+                        // ------------------------------------------
+                        // CONVERSION RATE COLORS
+                        // ------------------------------------------
+
+                        const convColor =
+                            metrics.conversionRate >= 10
+                                ? 'text-emerald-400 font-bold'
+                                : metrics.conversionRate > 0
+                                    ? 'text-amber-400 font-bold'
+                                    : 'text-gray-500';
+
+
+                        bodyHTML += `
+                            <tr class="hover:bg-gray-800/30 transition">
+
+                                <td class="py-3 px-4 font-sans font-medium text-gray-200 sticky-col">
+                                    ${rep}
+                                </td>
+
+                                <td class="py-3 px-4 text-center text-gray-400">
+                                    ${metrics.total}
+                                </td>
+
+                                <td class="py-3 px-4 text-center text-gray-300 font-bold">
+                                    ${metrics.connected}
+                                </td>
+
+                                <td class="py-3 px-4 text-center">
+                                    <span class="px-2.5 py-1 rounded font-bold ${rateColor} border">
+                                        ${metrics.rate}%
+                                    </span>
+                                </td>
+
+                                <td class="py-3 px-4 text-center text-indigo-300 font-bold border-l border-gray-800/50">
+                                    ${metrics.convertedCalls}
+                                </td>
+
+                                <td class="py-3 px-4 text-center text-amber-300 font-bold">
+                                    ${metrics.committedCalls}
+                                </td>
+
+                                <td class="py-3 px-4 text-center text-yellow-300 font-bold">
+                                    ${metrics.ambiguousCalls}
+                                </td>
+
+                                <td class="py-3 px-4 text-center ${convColor}">
+                                    ${metrics.conversionRate}%
+                                </td>
+
+                            </tr>
+                        `;
+                    }
                 }
+            });
+
+
+            if (!hasData) {
+
+                bodyHTML = `
+                    <tr>
+                        <td
+                            colspan="8"
+                            class="py-8 text-center text-gray-500 font-sans"
+                        >
+                            No Decision Maker calls logged for this criteria.
+                        </td>
+                    </tr>
+                `;
             }
-        });
 
-        if (!hasData) {
-            bodyHTML = `<tr><td colspan="6" class="py-8 text-center text-gray-500 font-sans">No Decision Maker calls logged for this criteria.</td></tr>`;
+
+            tbody.innerHTML = bodyHTML;
         }
-
-        tbody.innerHTML = bodyHTML;
-    }
 };
