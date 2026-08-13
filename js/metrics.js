@@ -13,10 +13,21 @@ window.AppMetrics = {
         // Dispositions that do NOT count as a human connect
         const nonConnects = ['left voicemail', 'no answer', 'left message', 'incorrect phone number', ''];
         
-        // REGEX MATCHING: \b ensures we only match whole words.
-        // This prevents "deactivate" from matching "activate", or "wholesale" from matching "sale".
-        const saleRegex = /\b(sale|sales|sold|deal|won|closed|activate|activated|activation|activations|contract|contracts)\b/i;
-        
+        // ==========================================
+        // RESEARCH-BASED SALE DETECTION DICTIONARIES
+        // Based on YTD Rep Note Analysis
+        // ==========================================
+
+        // 1. PRODUCT VOCABULARY (Must contain at least one to avoid generic "campaign" confusion)
+        const productRegex = /\b(sponsored\s+listings?|sponsor\s+listing|sl|ads?|advertising|advertisement|spon|sponsored\s+listen|sponsored\s+slitting|promos?|promotions?|smart\s+campaigns?|sc|smart|bogo|b1g1|buy\s+one\s+get\s+one|spend\s+x\s+get\s+y|sxgy|happy\s+hour|free\s+delivery|co-?funded|cofund)\b/i;
+
+        // 2. ADOPTION VERBS (Must contain at least one confirmation of completion/current state)
+        const actionRegex = /\b(activat\w*|active|live|sold|won|close\s+(deal|sale)|closed\s+(deal|sale)|set\s*up|we\s+took|took|agreed?|decided?|reactivat\w*|renew\w*)\b/i;
+
+        // 3. EXCLUSION / FUTURE INTENT (If the note contains these, reject the sale as it's just a pitch/follow-up)
+        const exclusionRegex = /\b(pitch\w*|interested|not\s+interested|tri(ed|y)\s+to\s+sell|will\s+activate|call\s+to\s+activate|follow\s*up\s+to|check\s+if|check\s+whether|send\s+link|send\s+email|pending|planned\s+to|overnight)\b/i;
+
+
         window.AppState.rawCallData.forEach(call => {
             // 1. Filter by Date, Rep, and Team
             if (call.date >= startDate && call.date <= endDate &&
@@ -33,12 +44,16 @@ window.AppMetrics = {
                     if (disp !== '' && !nonConnects.includes(disp)) {
                         connectedDMCalls++;
                         
-                        // 4. Check for Sales Keywords safely using Word Boundaries
-                        if (saleRegex.test(call.note)) {
+                        // 4. Evaluate the Note based on the research dictionaries
+                        if (call.note) {
+                            let note = call.note;
                             
-                            // Optional Hardening: Ignore notes that explicitly say "cancel" or "deactivate" near our keywords
-                            const negativeRegex = /\b(cancel|deactivate|deactivated|no deal|not interested)\b/i;
-                            if (!negativeRegex.test(call.note)) {
+                            // A valid sale requires a Product Mention AND an Adoption Verb
+                            let hasProduct = productRegex.test(note);
+                            let hasAction = actionRegex.test(note);
+                            let hasExclusion = exclusionRegex.test(note);
+
+                            if (hasProduct && hasAction && !hasExclusion) {
                                 estimatedSales++;
                             }
                         }
