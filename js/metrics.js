@@ -3,35 +3,6 @@
 // ADVANCED METRICS & CONVERSION CALCULATIONS
 // ==========================================
 
-/*
-    CONVERSION MODEL
-
-    Product:
-        sponsored
-        promotion
-        smart_campaign
-
-    Status:
-        converted
-        committed
-        reactivated
-        renewed
-        ambiguous
-        existing_active
-        confirmation_only
-        future_pending
-        declined
-        none
-
-    IMPORTANT:
-    Only "converted" contributes to the strict Sponsored/Promotion
-    conversion-rate numerator.
-
-    Smart Campaign remains separate and does not count toward the
-    Sponsored Listings / Promotions KPI unless the business definition
-    is explicitly changed later.
-*/
-
 
 // ==========================================
 // PRODUCT DETECTION
@@ -51,7 +22,7 @@ const CONVERSION_PRODUCT_RX = {
 
 
 // ==========================================
-// ACTION / STATE DETECTION
+// ACTION DETECTION
 // ==========================================
 
 const COMPLETED_ACTION_RX =
@@ -83,34 +54,21 @@ const RENEWAL_RX =
 
 
 // ==========================================
-// FALSE-POSITIVE CONTEXTS
+// CONTEXT SAFETY
 // ==========================================
-
-/*
-    Prevent "set up" from turning "set up a call" into a campaign sale.
-*/
 
 const SETUP_CALL_RX =
     /\bset\s*up\b.{0,30}\b(?:a\s+)?(?:call|meeting|follow[- ]?up|appointment)\b/i;
 
-/*
-    Prevent "sold restaurant/resto/business" from becoming a product sale.
-*/
-
 const SOLD_BUSINESS_RX =
     /\b(?:sold|sell)\b.{0,20}\b(?:resto|restaurant|business|company|location)\b/i;
-
-/*
-    Prevent agreement around scheduling a follow-up from becoming a
-    campaign commitment.
-*/
 
 const SCHEDULING_AGREEMENT_RX =
     /\b(?:agreed|decided|confirmed)\b.{0,40}\b(?:call|meeting|follow[- ]?up|appointment)\b/i;
 
 
 // ==========================================
-// TYPO NORMALIZATION
+// CORPUS-SPECIFIC TYPO NORMALIZATION
 // ==========================================
 
 const NORMALIZATION_REPLACEMENTS = [
@@ -147,16 +105,20 @@ const NORMALIZATION_REPLACEMENTS = [
 
 function normalizeConversionText(value) {
 
-    let text = String(value || '')
-        .toLowerCase()
-        .normalize('NFKC')
-        .replace(/[’‘]/g, "'")
-        .replace(/\s+/g, ' ')
-        .trim();
+    let text =
+        String(value || '')
+            .toLowerCase()
+            .normalize('NFKC')
+            .replace(/[’‘]/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
 
     NORMALIZATION_REPLACEMENTS.forEach(
         ([regex, replacement]) => {
-            text = text.replace(regex, replacement);
+            text = text.replace(
+                regex,
+                replacement
+            );
         }
     );
 
@@ -165,13 +127,14 @@ function normalizeConversionText(value) {
 
 
 // ==========================================
-// SECTION PARSER
+// STRUCTURED NOTE PARSER
 // ==========================================
 
 function splitNoteSections(note) {
 
     const normalized =
-        String(note || '').replace(/\r/g, '\n');
+        String(note || '')
+            .replace(/\r/g, '\n');
 
     const headingRx =
         /\b(reason\s+of\s+call|key\s+points?\s*\/?\s*concerns?|actions?\s+taken|next\s+steps?|follow\s*up)\s*:/gi;
@@ -180,6 +143,7 @@ function splitNoteSections(note) {
         [...normalized.matchAll(headingRx)];
 
     if (!matches.length) {
+
         return [
             {
                 type: 'freeform',
@@ -191,15 +155,24 @@ function splitNoteSections(note) {
     const sections = [];
 
     if (matches[0].index > 0) {
+
         sections.push({
             type: 'summary',
-            text: normalized
-                .slice(0, matches[0].index)
-                .trim()
+            text:
+                normalized
+                    .slice(
+                        0,
+                        matches[0].index
+                    )
+                    .trim()
         });
     }
 
-    for (let i = 0; i < matches.length; i++) {
+    for (
+        let i = 0;
+        i < matches.length;
+        i++
+    ) {
 
         const start =
             matches[i].index +
@@ -211,10 +184,12 @@ function splitNoteSections(note) {
                 : normalized.length;
 
         sections.push({
-            type: matches[i][1]
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toLowerCase(),
+
+            type:
+                matches[i][1]
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase(),
 
             text:
                 normalized
@@ -228,13 +203,14 @@ function splitNoteSections(note) {
 
 
 // ==========================================
-// FUTURE-ONLY SECTIONS
+// FUTURE SECTIONS
 // ==========================================
 
 function isFutureSection(sectionType) {
 
     const type =
-        String(sectionType || '').toLowerCase();
+        String(sectionType || '')
+            .toLowerCase();
 
     return (
         type.startsWith('next step') ||
@@ -255,16 +231,20 @@ function allMatches(regex, text) {
             : `${regex.flags}g`;
 
     const globalRegex =
-        new RegExp(regex.source, flags);
+        new RegExp(
+            regex.source,
+            flags
+        );
 
     return [
-        ...String(text || '').matchAll(globalRegex)
+        ...String(text || '')
+            .matchAll(globalRegex)
     ];
 }
 
 
 // ==========================================
-// PRODUCT / ACTION PROXIMITY
+// PRODUCT + ACTION PROXIMITY
 // ==========================================
 
 function hasNearbyMatch(
@@ -275,49 +255,71 @@ function hasNearbyMatch(
 ) {
 
     const products =
-        allMatches(productRegex, text);
+        allMatches(
+            productRegex,
+            text
+        );
 
     const actions =
-        allMatches(actionRegex, text);
+        allMatches(
+            actionRegex,
+            text
+        );
 
-    return products.some(product => {
+    return products.some(
+        product =>
+            actions.some(
+                action => {
 
-        return actions.some(action => {
+                    const p =
+                        product.index ?? 0;
 
-            const productIndex =
-                product.index ?? 0;
+                    const a =
+                        action.index ?? 0;
 
-            const actionIndex =
-                action.index ?? 0;
-
-            return (
-                Math.abs(
-                    productIndex - actionIndex
-                ) <= maxDistance
-            );
-        });
-    });
+                    return (
+                        Math.abs(p - a) <=
+                        maxDistance
+                    );
+                }
+            )
+    );
 }
 
 
 // ==========================================
-// PRODUCT DETECTOR
+// PRODUCT DETECTION
 // ==========================================
 
 function detectProducts(text) {
 
     const products = [];
 
-    if (CONVERSION_PRODUCT_RX.sponsored.test(text)) {
-        products.push('sponsored');
+    if (
+        CONVERSION_PRODUCT_RX.sponsored
+            .test(text)
+    ) {
+        products.push(
+            'sponsored'
+        );
     }
 
-    if (CONVERSION_PRODUCT_RX.promotion.test(text)) {
-        products.push('promotion');
+    if (
+        CONVERSION_PRODUCT_RX.promotion
+            .test(text)
+    ) {
+        products.push(
+            'promotion'
+        );
     }
 
-    if (CONVERSION_PRODUCT_RX.smartCampaign.test(text)) {
-        products.push('smart_campaign');
+    if (
+        CONVERSION_PRODUCT_RX.smartCampaign
+            .test(text)
+    ) {
+        products.push(
+            'smart_campaign'
+        );
     }
 
     return products;
@@ -325,13 +327,15 @@ function detectProducts(text) {
 
 
 // ==========================================
-// CLASSIFY ONE NOTE
+// CLASSIFY CONVERSION
 // ==========================================
 
 function classifyConversion(rawNote) {
 
     const note =
-        normalizeConversionText(rawNote);
+        normalizeConversionText(
+            rawNote
+        );
 
     if (!note) {
 
@@ -347,92 +351,107 @@ function classifyConversion(rawNote) {
         splitNoteSections(note);
 
     const result = {
+
         status: 'none',
-        categories: new Set(),
-        reason: null,
-        evidence: ''
+
+        categories:
+            new Set(),
+
+        reason:
+            null,
+
+        evidence:
+            ''
     };
 
 
     for (const section of sections) {
 
-        /*
-            Next Steps and Follow Up can describe intended future
-            actions, but cannot independently prove a completed sale.
-        */
-
         const canProveConversion =
-            !isFutureSection(section.type);
-
-
-        /*
-            Break structured notes into smaller clauses.
-        */
+            !isFutureSection(
+                section.type
+            );
 
         const clauses =
             section.text
-                .split(/[\n•;\/]+|(?<=[.!?])\s+/)
-                .map(value => value.trim())
+                .split(
+                    /[\n•;\/]+|(?<=[.!?])\s+/
+                )
+                .map(
+                    value =>
+                        value.trim()
+                )
                 .filter(Boolean);
 
 
         for (const clause of clauses) {
 
             const products =
-                detectProducts(clause);
+                detectProducts(
+                    clause
+                );
 
             if (!products.length) {
                 continue;
             }
 
-            products.forEach(product => {
-                result.categories.add(product);
-            });
+            products.forEach(
+                product =>
+                    result.categories
+                        .add(product)
+            );
 
-
-            // ------------------------------------------
-            // NEGATIVE / EXISTING / FUTURE CONDITIONS
-            // ------------------------------------------
 
             const hasNegative =
-                NEGATIVE_RX.test(clause);
+                NEGATIVE_RX.test(
+                    clause
+                );
 
             const hasExisting =
-                EXISTING_STATE_RX.test(clause);
+                EXISTING_STATE_RX.test(
+                    clause
+                );
 
             const hasActiveConfirmation =
-                ACTIVE_CONFIRMATION_RX.test(clause);
+                ACTIVE_CONFIRMATION_RX.test(
+                    clause
+                );
 
             const hasFuture =
-                FUTURE_ACTION_RX.test(clause);
+                FUTURE_ACTION_RX.test(
+                    clause
+                );
 
             const hasReactivate =
-                REACTIVATION_RX.test(clause);
+                REACTIVATION_RX.test(
+                    clause
+                );
 
             const hasRenewal =
-                RENEWAL_RX.test(clause);
+                RENEWAL_RX.test(
+                    clause
+                );
 
-
-            // ------------------------------------------
-            // CONTEXT SAFETY
-            // ------------------------------------------
 
             const setupIsForCall =
-                SETUP_CALL_RX.test(clause);
+                SETUP_CALL_RX.test(
+                    clause
+                );
 
             const soldBusiness =
-                SOLD_BUSINESS_RX.test(clause);
+                SOLD_BUSINESS_RX.test(
+                    clause
+                );
 
             const schedulingAgreement =
-                SCHEDULING_AGREEMENT_RX.test(clause);
+                SCHEDULING_AGREEMENT_RX.test(
+                    clause
+                );
 
-
-            // ------------------------------------------
-            // COMPLETED ACTION
-            // ------------------------------------------
 
             const hasCompleted =
                 hasNearbyMatch(
+
                     clause,
 
                     /(?:sponsored?\s+(?:listings?|listen|slitting|linsting)|sponsor\s*listing|sponsorlisting|\bsl\b|\bads?\b|advertis\w*|\bspon\w*\b|\bprom\w*\b|\bbogo\w*\b|\bb1g1\b|co[- ]?fund\w*|\bcofund\w*\b|\bsxgy\b|happy\s+hour|free\s+delivery)/i,
@@ -443,37 +462,62 @@ function classifyConversion(rawNote) {
                 );
 
 
-            // ------------------------------------------
-            // STRICT CONVERSION
-            // ------------------------------------------
+            /*
+                STRICT CONVERSION
+
+                Only the product + completed action
+                in the same clause can produce
+                a strict conversion.
+            */
 
             if (
+
                 canProveConversion &&
+
                 hasCompleted &&
+
                 !hasNegative &&
+
                 !hasFuture &&
+
                 !hasExisting &&
+
                 !hasActiveConfirmation &&
+
                 !hasReactivate &&
+
                 !hasRenewal &&
+
                 !setupIsForCall &&
+
                 !soldBusiness &&
+
                 !schedulingAgreement
+
             ) {
 
                 return {
-                    status: 'converted',
-                    categories: [...result.categories],
+
+                    status:
+                        'converted',
+
+                    categories:
+                        [
+                            ...result.categories
+                        ],
+
                     reason:
                         'product_and_completed_action_same_clause',
-                    evidence: clause
+
+                    evidence:
+                        clause
                 };
             }
 
 
-            // ------------------------------------------
-            // REACTIVATION
-            // ------------------------------------------
+            /*
+                REACTIVATION
+            */
 
             if (
                 canProveConversion &&
@@ -482,18 +526,22 @@ function classifyConversion(rawNote) {
                 !hasFuture
             ) {
 
-                result.status = 'reactivated';
+                result.status =
+                    'reactivated';
+
                 result.reason =
                     'reactivation_detected';
-                result.evidence = clause;
+
+                result.evidence =
+                    clause;
 
                 continue;
             }
 
 
-            // ------------------------------------------
-            // RENEWAL
-            // ------------------------------------------
+            /*
+                RENEWAL
+            */
 
             if (
                 canProveConversion &&
@@ -502,24 +550,37 @@ function classifyConversion(rawNote) {
                 !hasFuture
             ) {
 
-                result.status = 'renewed';
+                result.status =
+                    'renewed';
+
                 result.reason =
                     'renewal_detected';
-                result.evidence = clause;
+
+                result.evidence =
+                    clause;
 
                 continue;
             }
 
 
-            // ------------------------------------------
-            // EXPLICIT COMMITMENT
-            // ------------------------------------------
+            /*
+                EXPLICIT COMMITMENT
+            */
 
             const hasCommitment =
-                COMMITMENT_RX.test(clause) &&
-                !CONDITIONAL_RX.test(clause) &&
+
+                COMMITMENT_RX.test(
+                    clause
+                ) &&
+
+                !CONDITIONAL_RX.test(
+                    clause
+                ) &&
+
                 !hasNegative &&
+
                 !hasExisting &&
+
                 !schedulingAgreement;
 
 
@@ -529,24 +590,29 @@ function classifyConversion(rawNote) {
                 !hasFuture
             ) {
 
-                result.status = 'committed';
+                result.status =
+                    'committed';
+
                 result.reason =
                     'explicit_unconditional_commitment';
-                result.evidence = clause;
+
+                result.evidence =
+                    clause;
 
                 continue;
             }
 
 
-            // ------------------------------------------
-            // EXISTING / CONFIRMATION
-            // ------------------------------------------
+            /*
+                EXISTING CAMPAIGN
+            */
 
-            if (
-                hasExisting
-            ) {
+            if (hasExisting) {
 
-                if (result.status === 'none') {
+                if (
+                    result.status ===
+                    'none'
+                ) {
 
                     result.status =
                         'existing_active';
@@ -554,18 +620,26 @@ function classifyConversion(rawNote) {
                     result.reason =
                         'existing_campaign_state';
 
-                    result.evidence = clause;
+                    result.evidence =
+                        clause;
                 }
 
                 continue;
             }
 
 
+            /*
+                ACTIVE CONFIRMATION
+            */
+
             if (
                 hasActiveConfirmation
             ) {
 
-                if (result.status === 'none') {
+                if (
+                    result.status ===
+                    'none'
+                ) {
 
                     result.status =
                         'confirmation_only';
@@ -573,23 +647,27 @@ function classifyConversion(rawNote) {
                     result.reason =
                         'activation_confirmation';
 
-                    result.evidence = clause;
+                    result.evidence =
+                        clause;
                 }
 
                 continue;
             }
 
 
-            // ------------------------------------------
-            // FUTURE / PENDING
-            // ------------------------------------------
+            /*
+                FUTURE / PENDING
+            */
 
             if (
                 hasFuture ||
                 !canProveConversion
             ) {
 
-                if (result.status === 'none') {
+                if (
+                    result.status ===
+                    'none'
+                ) {
 
                     result.status =
                         'future_pending';
@@ -597,22 +675,24 @@ function classifyConversion(rawNote) {
                     result.reason =
                         'future_or_pending';
 
-                    result.evidence = clause;
+                    result.evidence =
+                        clause;
                 }
 
                 continue;
             }
 
 
-            // ------------------------------------------
-            // NEGATIVE
-            // ------------------------------------------
+            /*
+                NEGATIVE
+            */
 
-            if (
-                hasNegative
-            ) {
+            if (hasNegative) {
 
-                if (result.status === 'none') {
+                if (
+                    result.status ===
+                    'none'
+                ) {
 
                     result.status =
                         'declined';
@@ -620,7 +700,8 @@ function classifyConversion(rawNote) {
                     result.reason =
                         'negative_or_deactivation';
 
-                    result.evidence = clause;
+                    result.evidence =
+                        clause;
                 }
             }
         }
@@ -628,57 +709,31 @@ function classifyConversion(rawNote) {
 
 
     return {
+
         ...result,
-        categories: [...result.categories]
+
+        categories:
+            [...result.categories]
     };
 }
 
 
 // ==========================================
-// KPI HELPER
+// CONNECTED CALL
 // ==========================================
 
-function isSponsoredOrPromotionConversion(
-    classification,
-    includeCommitments = false
+function isConnectedDisposition(
+    disposition
 ) {
 
-    if (!classification) {
-        return false;
-    }
-
-    const validStatus =
-        includeCommitments
-            ? (
-                classification.status === 'converted' ||
-                classification.status === 'committed'
-            )
-            : classification.status === 'converted';
-
-    if (!validStatus) {
-        return false;
-    }
-
-    return (
-        classification.categories.includes('sponsored') ||
-        classification.categories.includes('promotion')
-    );
-}
-
-
-// ==========================================
-// CONNECTIVITY
-// ==========================================
-
-function isConnectedDisposition(disposition) {
-
-    const nonConnects = new Set([
-        'left voicemail',
-        'no answer',
-        'left message',
-        'incorrect phone number',
-        ''
-    ]);
+    const nonConnects =
+        new Set([
+            'left voicemail',
+            'no answer',
+            'left message',
+            'incorrect phone number',
+            ''
+        ]);
 
     return !nonConnects.has(
         String(disposition || '')
@@ -689,33 +744,41 @@ function isConnectedDisposition(disposition) {
 
 
 // ==========================================
-// CLASSIFICATION ACCESSOR
+// EXISTING CLASSIFICATION ACCESSOR
 // ==========================================
 
-function getCallClassification(call) {
-
-    /*
-        New records already contain classification.
-
-        Older records persisted in IndexedDB may not. In that case,
-        classify the original note dynamically.
-    */
+function getCallClassification(
+    call
+) {
 
     if (
         call &&
         call.conversionStatus &&
-        Array.isArray(call.conversionCategories)
+        Array.isArray(
+            call.conversionCategories
+        )
     ) {
 
         return {
-            status: call.conversionStatus,
-            categories: call.conversionCategories,
-            reason: call.conversionReason || '',
-            evidence: call.conversionEvidence || ''
+
+            status:
+                call.conversionStatus,
+
+            categories:
+                call.conversionCategories,
+
+            reason:
+                call.conversionReason ||
+                '',
+
+            evidence:
+                call.conversionEvidence ||
+                ''
         };
     }
 
     return classifyConversion(
+
         call?.originalNote ||
         call?.note ||
         ''
@@ -724,7 +787,7 @@ function getCallClassification(call) {
 
 
 // ==========================================
-// ADVANCED METRICS
+// METRICS
 // ==========================================
 
 window.AppMetrics = {
@@ -738,178 +801,285 @@ window.AppMetrics = {
         ) {
 
             let totalDMCalls = 0;
+
             let connectedDMCalls = 0;
 
             let convertedCalls = 0;
+
             let committedCalls = 0;
+
             let ambiguousCalls = 0;
 
             let reactivatedCalls = 0;
+
             let renewedCalls = 0;
+
             let existingActiveCalls = 0;
+
             let confirmationOnlyCalls = 0;
+
             let futurePendingCalls = 0;
+
             let declinedCalls = 0;
 
             let sponsoredConversions = 0;
+
             let promotionConversions = 0;
+
             let smartOnlyConversions = 0;
+
             let multiProductConversions = 0;
 
 
-            window.AppState.rawCallData.forEach(call => {
+            /*
+                This is the important addition.
 
-                const normalizedCallRep =
-                    normalizeName(call.rep);
+                Every call counted in convertedCalls is
+                also placed into convertedRecords.
 
-                const normalizedSearchRep =
-                    normalizeName(searchRep);
+                ui.js uses this list when the user clicks
+                "View calls".
+            */
 
-                /*
-                    Exact equality is used here because this function
-                    calculates an individual rep's KPI.
-
-                    The UI search box may still use substring matching.
-                */
-
-                const repMatches =
-                    !searchRep ||
-                    normalizedCallRep === normalizedSearchRep;
+            const convertedRecords = [];
 
 
-                if (
-                    call.date < startDate ||
-                    call.date > endDate ||
-                    !repMatches ||
-                    !isRepInTeam(call.rep, selectedTeam)
-                ) {
-                    return;
-                }
+            const normalizedSearchRep =
+                normalizeName(
+                    searchRep
+                );
 
 
-                if (
-                    !call.purpose ||
-                    call.purpose.toLowerCase() !==
-                        'decision maker call'
-                ) {
-                    return;
-                }
+            window.AppState.rawCallData.forEach(
+                call => {
+
+                    const normalizedCallRep =
+                        normalizeName(
+                            call.rep
+                        );
 
 
-                totalDMCalls++;
+                    /*
+                        Exact rep matching for KPI calculation.
+                    */
+
+                    const repMatches =
+
+                        !searchRep ||
+
+                        normalizedCallRep ===
+                            normalizedSearchRep;
 
 
-                const connected =
-                    isConnectedDisposition(
-                        call.disposition
-                    );
+                    if (
 
+                        call.date < startDate ||
 
-                if (!connected) {
-                    return;
-                }
+                        call.date > endDate ||
 
+                        !repMatches ||
 
-                connectedDMCalls++;
+                        !isRepInTeam(
+                            call.rep,
+                            selectedTeam
+                        )
 
-
-                const classification =
-                    getCallClassification(call);
-
-
-                const categories =
-                    classification.categories || [];
-
-
-                const hasSponsored =
-                    categories.includes('sponsored');
-
-                const hasPromotion =
-                    categories.includes('promotion');
-
-                const hasSmart =
-                    categories.includes('smart_campaign');
-
-
-                if (
-                    classification.status ===
-                    'converted'
-                ) {
-
-                    const countsForRequestedKPI =
-                        hasSponsored ||
-                        hasPromotion;
-
-
-                    if (countsForRequestedKPI) {
-
-                        convertedCalls++;
-
-                        if (hasSponsored) {
-                            sponsoredConversions++;
-                        }
-
-                        if (hasPromotion) {
-                            promotionConversions++;
-                        }
-
-                        if (
-                            hasSponsored &&
-                            hasPromotion
-                        ) {
-                            multiProductConversions++;
-                        }
-
-                    } else if (
-                        hasSmart &&
-                        !hasSponsored &&
-                        !hasPromotion
                     ) {
 
-                        smartOnlyConversions++;
+                        return;
+                    }
+
+
+                    /*
+                        Only Decision Maker Calls.
+                    */
+
+                    if (
+                        !call.purpose ||
+                        call.purpose.toLowerCase() !==
+                            'decision maker call'
+                    ) {
+
+                        return;
+                    }
+
+
+                    totalDMCalls++;
+
+
+                    /*
+                        Connected call denominator.
+                    */
+
+                    if (
+                        !isConnectedDisposition(
+                            call.disposition
+                        )
+                    ) {
+
+                        return;
+                    }
+
+
+                    connectedDMCalls++;
+
+
+                    const classification =
+                        getCallClassification(
+                            call
+                        );
+
+                    const categories =
+                        classification.categories ||
+                        [];
+
+
+                    const hasSponsored =
+                        categories.includes(
+                            'sponsored'
+                        );
+
+                    const hasPromotion =
+                        categories.includes(
+                            'promotion'
+                        );
+
+                    const hasSmart =
+                        categories.includes(
+                            'smart_campaign'
+                        );
+
+
+                    /*
+                        STRICT CONVERSION
+
+                        Sponsored OR Promotion
+                        AND status = converted.
+                    */
+
+                    if (
+                        classification.status ===
+                        'converted'
+                    ) {
+
+                        const countsForRequestedKPI =
+                            hasSponsored ||
+                            hasPromotion;
+
+
+                        if (
+                            countsForRequestedKPI
+                        ) {
+
+                            convertedCalls++;
+
+
+                            if (hasSponsored) {
+
+                                sponsoredConversions++;
+                            }
+
+
+                            if (hasPromotion) {
+
+                                promotionConversions++;
+                            }
+
+
+                            if (
+                                hasSponsored &&
+                                hasPromotion
+                            ) {
+
+                                multiProductConversions++;
+                            }
+
+
+                            /*
+                                This is the exact source
+                                record that generated the
+                                conversion.
+                            */
+
+                            convertedRecords.push(
+                                call
+                            );
+
+                        } else if (
+
+                            hasSmart &&
+
+                            !hasSponsored &&
+
+                            !hasPromotion
+
+                        ) {
+
+                            smartOnlyConversions++;
+                        }
+                    }
+
+
+                    switch (
+                        classification.status
+                    ) {
+
+                        case 'committed':
+
+                            committedCalls++;
+
+                            break;
+
+                        case 'ambiguous':
+
+                            ambiguousCalls++;
+
+                            break;
+
+                        case 'reactivated':
+
+                            reactivatedCalls++;
+
+                            break;
+
+                        case 'renewed':
+
+                            renewedCalls++;
+
+                            break;
+
+                        case 'existing_active':
+
+                            existingActiveCalls++;
+
+                            break;
+
+                        case 'confirmation_only':
+
+                            confirmationOnlyCalls++;
+
+                            break;
+
+                        case 'future_pending':
+
+                            futurePendingCalls++;
+
+                            break;
+
+                        case 'declined':
+
+                            declinedCalls++;
+
+                            break;
                     }
                 }
-
-
-                switch (classification.status) {
-
-                    case 'committed':
-                        committedCalls++;
-                        break;
-
-                    case 'ambiguous':
-                        ambiguousCalls++;
-                        break;
-
-                    case 'reactivated':
-                        reactivatedCalls++;
-                        break;
-
-                    case 'renewed':
-                        renewedCalls++;
-                        break;
-
-                    case 'existing_active':
-                        existingActiveCalls++;
-                        break;
-
-                    case 'confirmation_only':
-                        confirmationOnlyCalls++;
-                        break;
-
-                    case 'future_pending':
-                        futurePendingCalls++;
-                        break;
-
-                    case 'declined':
-                        declinedCalls++;
-                        break;
-                }
-            });
+            );
 
 
             const connectRate =
+
                 totalDMCalls > 0
+
                     ? Number(
                         (
                             connectedDMCalls /
@@ -917,28 +1087,14 @@ window.AppMetrics = {
                             100
                         ).toFixed(1)
                     )
+
                     : 0;
 
 
-            /*
-                STRICT CONVERSION RATE
-
-                Numerator:
-                    Converted Sponsored Listing calls
-                    +
-                    Converted Promotion calls
-
-                Denominator:
-                    Connected Decision Maker calls
-
-                Smart-only calls do NOT count.
-                Commitments do NOT count.
-                Existing active campaigns do NOT count.
-                Future intent does NOT count.
-            */
-
             const conversionRate =
+
                 connectedDMCalls > 0
+
                     ? Number(
                         (
                             convertedCalls /
@@ -946,6 +1102,7 @@ window.AppMetrics = {
                             100
                         ).toFixed(1)
                     )
+
                     : 0;
 
 
@@ -961,14 +1118,11 @@ window.AppMetrics = {
                     connectRate,
 
                 /*
-                    Backwards-compatible property.
-                    UI can continue using metrics.sales.
+                    Backward-compatible.
                 */
+
                 sales:
                     convertedCalls,
-
-                conversionRate:
-                    conversionRate,
 
                 convertedCalls:
                     convertedCalls,
@@ -1007,7 +1161,18 @@ window.AppMetrics = {
                     smartOnlyConversions,
 
                 multiProductConversions:
-                    multiProductConversions
+                    multiProductConversions,
+
+                /*
+                    NEW:
+                    exact converted source records.
+                */
+
+                convertedRecords:
+                    convertedRecords,
+
+                conversionRate:
+                    conversionRate
             };
         }
 };
