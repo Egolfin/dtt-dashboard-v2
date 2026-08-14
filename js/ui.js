@@ -1,6 +1,6 @@
 // ==========================================
 // js/ui.js
-// ADVANCED METRICS UI + CONVERSION DRILL-DOWN
+// METRICS UI + CONVERSION DRILL-DOWN
 // ==========================================
 
 window.AppUI = {
@@ -9,7 +9,7 @@ window.AppUI = {
 
 
     // ==========================================
-    // HTML ESCAPING
+    // ESCAPE HTML
     // ==========================================
 
     escapeHtml:
@@ -42,7 +42,7 @@ window.AppUI = {
 
 
     // ==========================================
-    // DISPLAY VALUE
+    // DISPLAY RAW VALUE
     // ==========================================
 
     displayValue:
@@ -69,7 +69,7 @@ window.AppUI = {
 
 
     // ==========================================
-    // DATE / TIME
+    // RAW DATE / TIME
     // ==========================================
 
     parseCreatedAt:
@@ -97,17 +97,13 @@ window.AppUI = {
 
 
             /*
-                Expected format from CSV:
-
-                Jan 02 2026 09:18:46 AM PST
-
-                We deliberately keep the source
-                timezone and do NOT convert the time.
+                CSV source format:
+                Jan 01 2026 01:54:28 PM PST
             */
 
             const match =
                 raw.match(
-                    /^(\w{3}\s+\d{1,2}\s+\d{4})\s+(.+)$/
+                    /^(.+?\d{4})\s+(.+)$/
                 );
 
 
@@ -147,9 +143,7 @@ window.AppUI = {
                     'convertedCallsModal'
                 );
 
-
             if (modal) {
-
                 modal.remove();
             }
         },
@@ -168,7 +162,7 @@ window.AppUI = {
             return `
 
                 <div
-                    class="rounded-xl border border-gray-800 bg-gray-900/50 p-4"
+                    class="rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left"
                 >
 
                     <div
@@ -188,7 +182,6 @@ window.AppUI = {
                     </div>
 
                 </div>
-
             `;
         },
 
@@ -226,7 +219,7 @@ window.AppUI = {
 
 
             modal.className =
-                'fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto';
+                'fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto';
 
 
             let cards =
@@ -242,41 +235,17 @@ window.AppUI = {
                         );
 
 
-                    /*
-                        IMPORTANT:
-
-                        We use the raw source fields,
-                        not normalized detection text.
-                    */
-
-                    const userName =
-                        call.userFullName ||
-                        call.rep ||
-                        '';
-
-
-                    const prospectName =
-                        call.prospectFullName ||
-                        '';
-
-
-                    const prospectCompany =
-                        call.prospectCompany ||
-                        '';
-
-
                     const note =
-                        call.originalNote ||
-                        '';
+                        call.originalNote;
 
 
                     cards += `
 
                         <article
-                            class="rounded-2xl border border-gray-800 bg-gray-950/90 overflow-hidden shadow-xl"
+                            class="rounded-2xl border border-gray-800 bg-gray-950 overflow-hidden shadow-xl text-left"
                         >
 
-                            <!-- CARD HEADER -->
+                            <!-- HEADER -->
 
                             <div
                                 class="px-5 py-4 border-b border-gray-800 bg-gray-900/80"
@@ -317,16 +286,14 @@ window.AppUI = {
                             </div>
 
 
-                            <!-- CALL INFORMATION -->
+                            <!-- DETAILS -->
 
                             <div
-                                class="p-5 space-y-5"
+                                class="p-5 space-y-4"
                             >
 
-                                <!-- DATE / TIME -->
-
                                 <div
-                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
                                 >
 
                                     ${this.renderDetailField(
@@ -339,10 +306,18 @@ window.AppUI = {
                                         dateTime.time
                                     )}
 
+                                    ${this.renderDetailField(
+                                        'Direction',
+                                        call.direction
+                                    )}
+
+                                    ${this.renderDetailField(
+                                        'State',
+                                        call.state
+                                    )}
+
                                 </div>
 
-
-                                <!-- PURPOSE / DISPOSITION -->
 
                                 <div
                                     class="grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -361,34 +336,13 @@ window.AppUI = {
                                 </div>
 
 
-                                <!-- USER / PROSPECT -->
-
                                 <div
                                     class="grid grid-cols-1 sm:grid-cols-2 gap-3"
                                 >
 
                                     ${this.renderDetailField(
                                         'User Full Name',
-                                        userName
-                                    )}
-
-                                    ${this.renderDetailField(
-                                        'Prospect Full Name',
-                                        prospectName
-                                    )}
-
-                                </div>
-
-
-                                <!-- COMPANY / PHONE -->
-
-                                <div
-                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
-                                >
-
-                                    ${this.renderDetailField(
-                                        'Prospect Company',
-                                        prospectCompany
+                                        call.userFullName
                                     )}
 
                                     ${this.renderDetailField(
@@ -399,73 +353,71 @@ window.AppUI = {
                                 </div>
 
 
-                                <!-- DIRECTION / STATE -->
-
                                 <div
                                     class="grid grid-cols-1 sm:grid-cols-2 gap-3"
                                 >
 
                                     ${this.renderDetailField(
-                                        'Direction',
-                                        call.direction
+                                        'Prospect Full Name',
+                                        call.prospectFullName
                                     )}
 
                                     ${this.renderDetailField(
-                                        'State',
-                                        call.state
+                                        'Prospect Company',
+                                        call.prospectCompany
                                     )}
 
                                 </div>
 
 
-                                <!-- NOTE -->
+                                <!-- ORIGINAL NOTE -->
 
-                                <div>
+                                <div
+                                    class="pt-2"
+                                >
 
                                     <div
-                                        class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2"
+                                        class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2 text-left"
                                     >
                                         Note
                                     </div>
 
 
-                                    <div
-                                        class="rounded-2xl border border-gray-800 bg-gray-900/70 px-5 py-5 text-sm text-gray-200 leading-7 whitespace-pre-wrap break-words font-sans"
-                                    >
-                                        ${this.displayValue(
-                                            note
-                                        )}
-                                    </div>
+                                    <pre
+                                        class="m-0 w-full rounded-2xl border border-gray-800 bg-gray-900/70 px-5 py-5 text-sm leading-7 text-gray-200 font-sans text-left whitespace-pre-wrap break-words overflow-x-auto"
+                                    >${this.displayValue(note)}</pre>
 
                                 </div>
 
 
-                                <!-- CONVERSION EVIDENCE -->
-
                                 ${
                                     call.conversionEvidence
-                                        ? `
 
-                                            <div>
+                                    ?
 
-                                                <div
-                                                    class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2"
-                                                >
-                                                    Detected Conversion Evidence
-                                                </div>
+                                    `
 
-                                                <div
-                                                    class="rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 text-sm text-indigo-200 leading-6 whitespace-pre-wrap break-words"
-                                                >
-                                                    ${this.displayValue(
-                                                        call.conversionEvidence
-                                                    )}
-                                                </div>
+                                    <div>
 
-                                            </div>
+                                        <div
+                                            class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2 text-left"
+                                        >
+                                            Detected Conversion Evidence
+                                        </div>
 
-                                        `
-                                        : ''
+                                        <pre
+                                            class="m-0 w-full rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-4 text-sm leading-6 text-indigo-200 font-sans text-left whitespace-pre-wrap break-words"
+                                        >${this.displayValue(
+                                            call.conversionEvidence
+                                        )}</pre>
+
+                                    </div>
+
+                                    `
+
+                                    :
+
+                                    ''
                                 }
 
                             </div>
@@ -482,15 +434,9 @@ window.AppUI = {
                 cards = `
 
                     <div
-                        class="rounded-2xl border border-gray-800 bg-gray-950 p-10 text-center"
+                        class="rounded-2xl border border-gray-800 bg-gray-950 p-10 text-center text-gray-500"
                     >
-
-                        <div
-                            class="text-gray-400 text-sm"
-                        >
-                            No converted calls found.
-                        </div>
-
+                        No converted calls found.
                     </div>
 
                 `;
@@ -507,10 +453,8 @@ window.AppUI = {
                         class="rounded-3xl border border-gray-800 bg-gray-900 overflow-hidden shadow-2xl"
                     >
 
-                        <!-- MODAL HEADER -->
-
                         <div
-                            class="px-6 py-5 border-b border-gray-800 bg-gray-950/90"
+                            class="px-6 py-5 border-b border-gray-800 bg-gray-950"
                         >
 
                             <div
@@ -552,8 +496,7 @@ window.AppUI = {
                                 <button
                                     type="button"
                                     onclick="AppUI.closeConvertedCalls()"
-                                    class="h-10 w-10 rounded-xl border border-gray-800 bg-gray-900 text-gray-400 hover:text-white hover:border-gray-600 transition"
-                                    aria-label="Close"
+                                    class="h-10 w-10 rounded-xl border border-gray-800 bg-gray-900 text-gray-400 hover:text-white transition"
                                 >
                                     &times;
                                 </button>
@@ -562,8 +505,6 @@ window.AppUI = {
 
                         </div>
 
-
-                        <!-- MODAL BODY -->
 
                         <div
                             class="p-4 sm:p-6 space-y-4"
@@ -576,13 +517,8 @@ window.AppUI = {
                     </div>
 
                 </div>
-
             `;
 
-
-            /*
-                Backdrop close.
-            */
 
             modal.addEventListener(
                 'click',
@@ -603,10 +539,6 @@ window.AppUI = {
                 modal
             );
 
-
-            /*
-                ESC to close.
-            */
 
             const escapeHandler =
                 event => {
@@ -650,7 +582,6 @@ window.AppUI = {
                     'metricsTableHead'
                 );
 
-
             const tbody =
                 document.getElementById(
                     'metricsTableBody'
@@ -660,7 +591,6 @@ window.AppUI = {
             document.getElementById(
                 'metricsDateRange'
             ).textContent =
-
                 `Strict Conversion: Sponsored Listings + Promotions | Date Range: ${startDateStr} to ${endDateStr}`;
 
 
@@ -717,7 +647,6 @@ window.AppUI = {
                     </th>
 
                 </tr>
-
             `;
 
 
@@ -748,8 +677,7 @@ window.AppUI = {
                         rep
                             .toLowerCase()
                             .includes(
-                                searchRep
-                                    .toLowerCase()
+                                searchRep.toLowerCase()
                             ) &&
 
                         isRepInTeam(
@@ -780,8 +708,7 @@ window.AppUI = {
                             this.convertedCallCache[
                                 rep
                             ] =
-                                metrics
-                                    .convertedRecords ||
+                                metrics.convertedRecords ||
                                 [];
 
 
@@ -827,17 +754,17 @@ window.AppUI = {
                                                 ? 'call'
                                                 : 'calls'}
                                         </a>
-
                                     `
 
-                                    : `
+                                    :
+
+                                    `
 
                                         <span
                                             class="block mt-1 text-[11px] text-gray-600"
                                         >
                                             No converted calls
                                         </span>
-
                                     `;
 
 
@@ -850,9 +777,7 @@ window.AppUI = {
                                     <td
                                         class="py-3 px-4 font-sans font-medium text-gray-200 sticky-col"
                                     >
-                                        ${this.displayValue(
-                                            rep
-                                        )}
+                                        ${this.displayValue(rep)}
                                     </td>
 
 
@@ -919,7 +844,6 @@ window.AppUI = {
                                     </td>
 
                                 </tr>
-
                             `;
                         }
                     }
