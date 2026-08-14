@@ -16,6 +16,11 @@ window.AppState = {
     endDateStr: ''
 };
 
+
+// ==========================================
+// TEAM MAPPING
+// ==========================================
+
 const teamMapping = {
     "Alejandro Bustos": [
         "Allen Hodgson",
@@ -129,6 +134,11 @@ const teamMapping = {
     ]
 };
 
+
+// ==========================================
+// NAME NORMALIZATION
+// ==========================================
+
 function normalizeName(str) {
     return String(str || '')
         .normalize('NFD')
@@ -137,34 +147,65 @@ function normalizeName(str) {
         .trim();
 }
 
+
 function isRepInTeam(repName, teamManager) {
-    if (teamManager === 'ALL') return true;
 
-    const members = teamMapping[teamManager];
+    if (teamManager === 'ALL') {
+        return true;
+    }
 
-    if (!members) return true;
+    const members =
+        teamMapping[teamManager];
+
+    if (!members) {
+        return true;
+    }
 
     return members.some(
-        member => normalizeName(member) === normalizeName(repName)
+        member =>
+            normalizeName(member) ===
+            normalizeName(repName)
     );
 }
 
+
+// ==========================================
+// DATE PARSER
+// ==========================================
+
 function parseDateString(str) {
-    if (!str) return null;
 
-    const value = String(str);
+    if (!str) {
+        return null;
+    }
 
-    const isoMatch = value.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const value =
+        String(str).trim();
+
+
+    const isoMatch =
+        value.match(
+            /(\d{4})-(\d{2})-(\d{2})/
+        );
+
 
     if (isoMatch) {
+
         return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
     }
 
-    const usMatch = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+    const usMatch =
+        value.match(
+            /(\d{1,2})\/(\d{1,2})\/(\d{4})/
+        );
+
 
     if (usMatch) {
+
         return `${usMatch[3]}-${usMatch[1].padStart(2, '0')}-${usMatch[2].padStart(2, '0')}`;
     }
+
 
     const months = {
         jan: '01',
@@ -181,101 +222,200 @@ function parseDateString(str) {
         dec: '12'
     };
 
-    const textMatch = value.match(
-        /([a-zA-Z]{3})\s+(\d{1,2})\s+(\d{4})/
-    );
+
+    const textMatch =
+        value.match(
+            /([a-zA-Z]{3})\s+(\d{1,2})\s+(\d{4})/
+        );
+
 
     if (textMatch) {
+
         const month =
-            months[textMatch[1].toLowerCase()];
+            months[
+                textMatch[1]
+                    .toLowerCase()
+            ];
+
 
         if (month) {
+
             return `${textMatch[3]}-${month}-${textMatch[2].padStart(2, '0')}`;
         }
     }
 
-    const d = new Date(value);
+
+    const d =
+        new Date(value);
+
 
     if (!isNaN(d.getTime())) {
+
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
+
 
     return null;
 }
 
-function addDaysToStringDate(dateStr, days) {
-    if (!dateStr || !dateStr.includes('-')) {
+
+// ==========================================
+// DATE INCREMENT
+// ==========================================
+
+function addDaysToStringDate(
+    dateStr,
+    days
+) {
+
+    if (
+        !dateStr ||
+        !dateStr.includes('-')
+    ) {
         return dateStr;
     }
 
-    const parts = dateStr.split('-');
 
-    const d = new Date(
-        parseInt(parts[0], 10),
-        parseInt(parts[1], 10) - 1,
-        parseInt(parts[2], 10)
+    const parts =
+        dateStr.split('-');
+
+
+    const d =
+        new Date(
+            parseInt(parts[0], 10),
+            parseInt(parts[1], 10) - 1,
+            parseInt(parts[2], 10)
+        );
+
+
+    d.setDate(
+        d.getDate() + days
     );
 
-    d.setDate(d.getDate() + days);
 
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+
+// ==========================================
+// DATE FILTERS
+// ==========================================
+
 function refreshDateFilterOptions() {
+
     const allDates = [
-        ...window.AppState.rawCallData.map(d => d.date),
-        ...window.AppState.manualEntries.map(m => m.date)
+
+        ...window.AppState.rawCallData
+            .map(d => d.date),
+
+        ...window.AppState.manualEntries
+            .map(m => m.date)
+
     ]
-        .filter(d => d && d.includes('-'))
+        .filter(
+            d =>
+                d &&
+                d.includes('-')
+        )
         .sort();
 
+
     window.AppState.parsedDates =
-        [...new Set(allDates)];
+        [
+            ...new Set(allDates)
+        ];
 }
 
-const DB_NAME = 'DTT_Analytics_Pro_DB';
+
+// ==========================================
+// INDEXED DB
+// ==========================================
+
+const DB_NAME =
+    'DTT_Analytics_Pro_DB';
+
 const DB_VERSION = 1;
 
+
 function openDB() {
-    return new Promise((resolve, reject) => {
 
-        const request =
-            indexedDB.open(DB_NAME, DB_VERSION);
+    return new Promise(
+        (resolve, reject) => {
 
-        request.onupgradeneeded = (e) => {
+            const request =
+                indexedDB.open(
+                    DB_NAME,
+                    DB_VERSION
+                );
 
-            const db = e.target.result;
 
-            if (!db.objectStoreNames.contains('app_state')) {
-                db.createObjectStore('app_state');
-            }
-        };
+            request.onupgradeneeded =
+                event => {
 
-        request.onsuccess =
-            (e) => resolve(e.target.result);
+                    const db =
+                        event.target.result;
 
-        request.onerror =
-            (e) => reject(e.target.error);
-    });
+
+                    if (
+                        !db.objectStoreNames
+                            .contains('app_state')
+                    ) {
+
+                        db.createObjectStore(
+                            'app_state'
+                        );
+                    }
+                };
+
+
+            request.onsuccess =
+                event =>
+                    resolve(
+                        event.target.result
+                    );
+
+
+            request.onerror =
+                event =>
+                    reject(
+                        event.target.error
+                    );
+        }
+    );
 }
+
 
 async function saveAppState() {
 
     try {
 
-        const db = await openDB();
+        const db =
+            await openDB();
+
 
         const tx =
-            db.transaction('app_state', 'readwrite');
+            db.transaction(
+                'app_state',
+                'readwrite'
+            );
+
 
         const store =
-            tx.objectStore('app_state');
+            tx.objectStore(
+                'app_state'
+            );
+
 
         const stateToSave = {
             ...window.AppState,
+
             allKnownReps:
-                Array.from(window.AppState.allKnownReps)
+                Array.from(
+                    window.AppState
+                        .allKnownReps
+                )
         };
+
 
         store.put(
             stateToSave,
@@ -291,64 +431,103 @@ async function saveAppState() {
     }
 }
 
+
+// ==========================================
+// CONVERSION FIELD REPAIR
+// ==========================================
+
 function ensureConversionFields() {
 
-    if (!window.AppState.rawCallData) {
+    if (
+        !window.AppState.rawCallData
+    ) {
         return;
     }
 
-    window.AppState.rawCallData.forEach(call => {
 
-        if (
-            !call.conversionStatus ||
-            !Array.isArray(call.conversionCategories)
-        ) {
+    window.AppState.rawCallData.forEach(
+        call => {
 
-            const classification =
-                classifyConversion(
-                    call.originalNote ||
-                    call.note ||
-                    ''
-                );
+            if (
+                !call.conversionStatus ||
+                !Array.isArray(
+                    call.conversionCategories
+                )
+            ) {
 
-            call.conversionStatus =
-                classification.status;
+                const classification =
+                    classifyConversion(
+                        call.originalNote ||
+                        call.note ||
+                        ''
+                    );
 
-            call.conversionCategories =
-                classification.categories;
 
-            call.conversionReason =
-                classification.reason;
+                call.conversionStatus =
+                    classification.status;
 
-            call.conversionEvidence =
-                classification.evidence;
+
+                call.conversionCategories =
+                    classification.categories;
+
+
+                call.conversionReason =
+                    classification.reason;
+
+
+                call.conversionEvidence =
+                    classification.evidence;
+            }
         }
-    });
+    );
 }
+
+
+// ==========================================
+// CSV PROCESSOR
+// ==========================================
 
 function processCSVData(data) {
 
-    window.AppState.rawCallData = [];
+    window.AppState.rawCallData =
+        [];
 
-    window.AppState.allKnownReps.clear();
+
+    window.AppState.allKnownReps
+        .clear();
+
 
     data.forEach(row => {
 
         const firstName =
-            row['User First Name'] ||
-            row['User FirstName'] ||
-            '';
+            String(
+                row['User First Name'] ||
+                row['User FirstName'] ||
+                ''
+            ).trim();
+
 
         const lastName =
-            row['User Last Name'] ||
-            row['User LastName'] ||
-            '';
+            String(
+                row['User Last Name'] ||
+                row['User LastName'] ||
+                ''
+            ).trim();
+
+
+        const userFullName =
+            `${firstName} ${lastName}`.trim();
+
 
         const repName =
-            `${firstName} ${lastName}`.trim() ||
-            row['Prospect Owner Name'] ||
-            row['User Name'] ||
-            'Unknown Rep';
+            userFullName ||
+
+            String(
+                row['Prospect Owner Name'] ||
+                row['User Name'] ||
+                'Unknown Rep'
+            ).trim();
+
 
         let durationSec =
             parseFloat(
@@ -357,67 +536,144 @@ function processCSVData(data) {
                 0
             );
 
+
         if (isNaN(durationSec)) {
             durationSec = 0;
         }
 
+
         /*
-            Created At is the source timestamp we use for
-            the displayed Date and Time.
+            PRESERVE THE RAW CSV VALUES.
+
+            Do NOT lowercase or normalize these fields.
         */
 
         const createdAt =
-            (row['Created At'] || '').trim();
+            String(
+                row['Created At'] ||
+                ''
+            );
 
-        const dateStr =
-            createdAt ||
-            row['Completed At'] ||
-            row['Date'] ||
-            '';
 
-        const parsedDate =
-            parseDateString(dateStr);
+        const answeredAt =
+            String(
+                row['Answered At'] ||
+                ''
+            );
 
-        const purpose =
-            (row['Purpose'] || '').trim();
 
-        const disposition =
-            (row['Disposition'] || '')
-                .trim()
-                .toLowerCase();
+        const completedAt =
+            String(
+                row['Completed At'] ||
+                ''
+            );
 
-        const outcome =
-            (row['Outcome'] || '').trim();
-
-        const state =
-            (row['State'] || '').trim();
 
         const direction =
-            (row['Direction'] || '').trim();
+            String(
+                row['Direction'] ||
+                ''
+            );
+
 
         const from =
-            (row['From'] || '').trim();
+            String(
+                row['From'] ||
+                ''
+            );
+
 
         const to =
-            (row['To'] || '').trim();
+            String(
+                row['To'] ||
+                ''
+            );
+
+
+        const state =
+            String(
+                row['State'] ||
+                ''
+            );
+
+
+        const outcome =
+            String(
+                row['Outcome'] ||
+                ''
+            );
+
+
+        const purpose =
+            String(
+                row['Purpose'] ||
+                ''
+            ).trim();
+
+
+        const disposition =
+            String(
+                row['Disposition'] ||
+                ''
+            ).trim();
+
 
         const prospectFirstName =
-            (row['Prospect First Name'] || '').trim();
+            String(
+                row['Prospect First Name'] ||
+                ''
+            ).trim();
+
 
         const prospectLastName =
-            (row['Prospect Last Name'] || '').trim();
+            String(
+                row['Prospect Last Name'] ||
+                ''
+            ).trim();
+
 
         const prospectFullName =
-            `${prospectFirstName} ${prospectLastName}`.trim();
+            `${prospectFirstName} ${prospectLastName}`
+                .trim();
+
 
         const prospectCompany =
-            (row['Prospect Company'] || '').trim();
+            String(
+                row['Prospect Company'] ||
+                ''
+            ).trim();
+
+
+        /*
+            CRITICAL:
+
+            originalNote is NEVER modified.
+
+            This preserves:
+            - emojis
+            - line breaks
+            - bullets
+            - capitalization
+            - spacing
+            - symbols
+        */
 
         const originalNote =
-            (row['Note'] || '').trim();
+            String(
+                row['Note'] ||
+                ''
+            );
+
+
+        /*
+            note is retained for backwards compatibility.
+
+            It is NOT used for display.
+        */
 
         const note =
-            originalNote.toLowerCase();
+            originalNote;
+
 
         const recordId =
             String(
@@ -427,84 +683,161 @@ function processCSVData(data) {
                 ''
             ).trim();
 
-        if (repName && parsedDate) {
+
+        const dateStr =
+            createdAt ||
+            completedAt ||
+            '';
+
+
+        const parsedDate =
+            parseDateString(
+                dateStr
+            );
+
+
+        if (
+            repName &&
+            parsedDate
+        ) {
 
             const dtt =
-                (durationSec / 60.0) + 1.0;
+                (durationSec / 60.0) +
+                1.0;
+
+
+            /*
+                Conversion classification uses the
+                raw note. The classifier creates its
+                own internal normalized copy.
+            */
 
             const conversion =
                 classifyConversion(
                     originalNote
                 );
 
+
             window.AppState.rawCallData.push({
 
-                // Source audit information
-                id: recordId,
+                id:
+                    recordId,
 
-                // Rep
-                rep: repName,
+
+                rep:
+                    repName,
+
+
                 userFullName:
-                    `${firstName} ${lastName}`.trim(),
+                    userFullName,
 
-                // Dates
-                date: parsedDate,
-                createdAt: createdAt,
+
+                date:
+                    parsedDate,
+
+
+                createdAt:
+                    createdAt,
+
+
                 answeredAt:
-                    (row['Answered At'] || '').trim(),
+                    answeredAt,
+
+
                 completedAt:
-                    (row['Completed At'] || '').trim(),
+                    completedAt,
 
-                // Call information
-                dtt: dtt,
-                purpose: purpose,
-                disposition: disposition,
-                outcome: outcome,
-                state: state,
-                direction: direction,
-                from: from,
-                to: to,
 
-                // Prospect
+                dtt:
+                    dtt,
+
+
+                purpose:
+                    purpose,
+
+
+                disposition:
+                    disposition,
+
+
+                outcome:
+                    outcome,
+
+
+                state:
+                    state,
+
+
+                direction:
+                    direction,
+
+
+                from:
+                    from,
+
+
+                to:
+                    to,
+
+
                 prospectFirstName:
                     prospectFirstName,
+
 
                 prospectLastName:
                     prospectLastName,
 
+
                 prospectFullName:
                     prospectFullName,
+
 
                 prospectCompany:
                     prospectCompany,
 
-                // Notes
-                note: note,
-                originalNote: originalNote,
 
-                // Conversion classification
+                /*
+                    Original untouched note.
+                */
+
+                note:
+                    note,
+
+                originalNote:
+                    originalNote,
+
+
                 conversionStatus:
                     conversion.status,
+
 
                 conversionCategories:
                     conversion.categories,
 
+
                 conversionReason:
                     conversion.reason,
+
 
                 conversionEvidence:
                     conversion.evidence
             });
 
-            window.AppState.allKnownReps.add(
-                repName
-            );
+
+            window.AppState
+                .allKnownReps
+                .add(repName);
         }
     });
 
+
     window.AppState.manualEntries.forEach(
-        m => window.AppState.allKnownReps.add(m.rep)
+        m =>
+            window.AppState
+                .allKnownReps
+                .add(m.rep)
     );
+
 
     refreshDateFilterOptions();
 }
