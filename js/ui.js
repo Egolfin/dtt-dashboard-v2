@@ -5,75 +5,89 @@
 
 window.AppUI = {
 
-    /*
-        Stores the converted records for each rep currently
-        displayed in the metrics table.
-
-        Example:
-        convertedCallCache["Esteban Golfin"]
-            = [call1, call2, call3]
-    */
-
     convertedCallCache: {},
 
 
     // ==========================================
-    // HTML SAFETY
+    // HTML ESCAPING
     // ==========================================
 
-    escapeHtml: function(value) {
+    escapeHtml:
+        function(value) {
 
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    },
+            return String(
+                value ?? ''
+            )
+                .replace(
+                    /&/g,
+                    '&amp;'
+                )
+                .replace(
+                    /</g,
+                    '&lt;'
+                )
+                .replace(
+                    />/g,
+                    '&gt;'
+                )
+                .replace(
+                    /"/g,
+                    '&quot;'
+                )
+                .replace(
+                    /'/g,
+                    '&#039;'
+                );
+        },
 
 
-    getDisplayValue: function(value) {
+    // ==========================================
+    // DISPLAY VALUE
+    // ==========================================
 
-        const cleaned =
-            String(value ?? '').trim();
+    displayValue:
+        function(value) {
 
-        return cleaned
-            ? this.escapeHtml(cleaned)
-            : 'No info';
-    },
+            const raw =
+                String(
+                    value ?? ''
+                );
+
+
+            if (
+                raw.trim() === ''
+            ) {
+
+                return 'No info';
+            }
+
+
+            return this.escapeHtml(
+                raw
+            );
+        },
 
 
     // ==========================================
     // DATE / TIME
     // ==========================================
 
-    /*
-        CSV example:
+    parseCreatedAt:
+        function(createdAt) {
 
-        Jan 08 2026 09:30:31 AM PST
-
-        We intentionally preserve the source timezone/time
-        rather than converting it to the browser's timezone.
-    */
-
-    splitCreatedAt:
-        function(
-            createdAt,
-            fallbackDate
-        ) {
-
-            const value =
+            const raw =
                 String(
-                    createdAt || ''
-                ).trim();
+                    createdAt ?? ''
+                );
 
 
-            if (!value) {
+            if (
+                raw.trim() === ''
+            ) {
 
                 return {
 
                     date:
-                        fallbackDate ||
                         'No info',
 
                     time:
@@ -82,9 +96,18 @@ window.AppUI = {
             }
 
 
+            /*
+                Expected format from CSV:
+
+                Jan 02 2026 09:18:46 AM PST
+
+                We deliberately keep the source
+                timezone and do NOT convert the time.
+            */
+
             const match =
-                value.match(
-                    /^([A-Za-z]{3}\s+\d{1,2}\s+\d{4})\s+(.+)$/
+                raw.match(
+                    /^(\w{3}\s+\d{1,2}\s+\d{4})\s+(.+)$/
                 );
 
 
@@ -104,11 +127,10 @@ window.AppUI = {
             return {
 
                 date:
-                    fallbackDate ||
-                    value,
+                    raw,
 
                 time:
-                    value
+                    'No info'
             };
         },
 
@@ -125,10 +147,49 @@ window.AppUI = {
                     'convertedCallsModal'
                 );
 
+
             if (modal) {
 
                 modal.remove();
             }
+        },
+
+
+    // ==========================================
+    // DETAIL FIELD
+    // ==========================================
+
+    renderDetailField:
+        function(
+            label,
+            value
+        ) {
+
+            return `
+
+                <div
+                    class="rounded-xl border border-gray-800 bg-gray-900/50 p-4"
+                >
+
+                    <div
+                        class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-1.5"
+                    >
+                        ${this.escapeHtml(
+                            label
+                        )}
+                    </div>
+
+                    <div
+                        class="text-sm text-gray-200 break-words"
+                    >
+                        ${this.displayValue(
+                            value
+                        )}
+                    </div>
+
+                </div>
+
+            `;
         },
 
 
@@ -165,99 +226,107 @@ window.AppUI = {
 
 
             modal.className =
-                'fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto';
+                'fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm flex items-start justify-center p-4 sm:p-6 overflow-y-auto';
 
 
-            const total =
-                calls.length;
-
-
-            let cards = '';
+            let cards =
+                '';
 
 
             calls.forEach(
                 (call, index) => {
 
                     const dateTime =
-                        this.splitCreatedAt(
-                            call.createdAt,
-                            call.date
+                        this.parseCreatedAt(
+                            call.createdAt
                         );
 
 
+                    /*
+                        IMPORTANT:
+
+                        We use the raw source fields,
+                        not normalized detection text.
+                    */
+
+                    const userName =
+                        call.userFullName ||
+                        call.rep ||
+                        '';
+
+
                     const prospectName =
-                        call.prospectFullName?.trim() ||
-                        'No info';
+                        call.prospectFullName ||
+                        '';
 
 
                     const prospectCompany =
-                        call.prospectCompany?.trim() ||
-                        'No info';
-
-
-                    const userName =
-                        call.userFullName?.trim() ||
-                        call.rep ||
-                        'No info';
+                        call.prospectCompany ||
+                        '';
 
 
                     const note =
                         call.originalNote ||
-                        call.note ||
-                        'No info';
+                        '';
 
 
                     cards += `
 
                         <article
-                            class="rounded-2xl border border-gray-800 bg-gray-950/80 shadow-xl overflow-hidden"
+                            class="rounded-2xl border border-gray-800 bg-gray-950/90 overflow-hidden shadow-xl"
                         >
 
-                            <!-- CALL HEADER -->
+                            <!-- CARD HEADER -->
 
                             <div
-                                class="px-5 py-4 border-b border-gray-800 bg-gray-900/70 flex flex-wrap items-center justify-between gap-3"
+                                class="px-5 py-4 border-b border-gray-800 bg-gray-900/80"
                             >
 
-                                <div>
+                                <div
+                                    class="flex flex-wrap items-center justify-between gap-3"
+                                >
 
-                                    <div
-                                        class="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-semibold"
-                                    >
-                                        Converted Call ${index + 1}
+                                    <div>
+
+                                        <div
+                                            class="text-[10px] uppercase tracking-[0.18em] text-indigo-400 font-bold"
+                                        >
+                                            Converted Call ${index + 1}
+                                        </div>
+
+                                        <div
+                                            class="text-sm font-semibold text-white mt-1"
+                                        >
+                                            Record ID:
+                                            ${this.displayValue(
+                                                call.id
+                                            )}
+                                        </div>
+
                                     </div>
 
-                                    <div
-                                        class="text-sm font-semibold text-white mt-1"
+
+                                    <span
+                                        class="inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-300 bg-emerald-500/10 border border-emerald-500/20"
                                     >
-                                        Record
-                                        ${this.getDisplayValue(
-                                            call.id || 'No info'
-                                        )}
-                                    </div>
+                                        Converted
+                                    </span>
 
                                 </div>
-
-
-                                <span
-                                    class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                                >
-                                    Converted
-                                </span>
 
                             </div>
 
 
-                            <!-- CALL DETAILS -->
+                            <!-- CALL INFORMATION -->
 
                             <div
                                 class="p-5 space-y-5"
                             >
 
-                                <!-- DATE / TIME / DIRECTION / STATE -->
+                                <!-- DATE / TIME -->
 
                                 <div
-                                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
+                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
                                 >
 
                                     ${this.renderDetailField(
@@ -268,16 +337,6 @@ window.AppUI = {
                                     ${this.renderDetailField(
                                         'Time',
                                         dateTime.time
-                                    )}
-
-                                    ${this.renderDetailField(
-                                        'Direction',
-                                        call.direction
-                                    )}
-
-                                    ${this.renderDetailField(
-                                        'State',
-                                        call.state
                                     )}
 
                                 </div>
@@ -302,7 +361,7 @@ window.AppUI = {
                                 </div>
 
 
-                                <!-- PEOPLE / PHONE -->
+                                <!-- USER / PROSPECT -->
 
                                 <div
                                     class="grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -314,18 +373,46 @@ window.AppUI = {
                                     )}
 
                                     ${this.renderDetailField(
-                                        'To',
-                                        call.to
-                                    )}
-
-                                    ${this.renderDetailField(
                                         'Prospect Full Name',
                                         prospectName
                                     )}
 
+                                </div>
+
+
+                                <!-- COMPANY / PHONE -->
+
+                                <div
+                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                                >
+
                                     ${this.renderDetailField(
                                         'Prospect Company',
                                         prospectCompany
+                                    )}
+
+                                    ${this.renderDetailField(
+                                        'To',
+                                        call.to
+                                    )}
+
+                                </div>
+
+
+                                <!-- DIRECTION / STATE -->
+
+                                <div
+                                    class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                                >
+
+                                    ${this.renderDetailField(
+                                        'Direction',
+                                        call.direction
+                                    )}
+
+                                    ${this.renderDetailField(
+                                        'State',
+                                        call.state
                                     )}
 
                                 </div>
@@ -336,24 +423,55 @@ window.AppUI = {
                                 <div>
 
                                     <div
-                                        class="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-semibold mb-2"
+                                        class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2"
                                     >
                                         Note
                                     </div>
 
+
                                     <div
-                                        class="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-4 text-sm leading-6 text-gray-300 whitespace-pre-wrap break-words"
+                                        class="rounded-2xl border border-gray-800 bg-gray-900/70 px-5 py-5 text-sm text-gray-200 leading-7 whitespace-pre-wrap break-words font-sans"
                                     >
-                                        ${this.getDisplayValue(
+                                        ${this.displayValue(
                                             note
                                         )}
                                     </div>
 
                                 </div>
 
+
+                                <!-- CONVERSION EVIDENCE -->
+
+                                ${
+                                    call.conversionEvidence
+                                        ? `
+
+                                            <div>
+
+                                                <div
+                                                    class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold mb-2"
+                                                >
+                                                    Detected Conversion Evidence
+                                                </div>
+
+                                                <div
+                                                    class="rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 text-sm text-indigo-200 leading-6 whitespace-pre-wrap break-words"
+                                                >
+                                                    ${this.displayValue(
+                                                        call.conversionEvidence
+                                                    )}
+                                                </div>
+
+                                            </div>
+
+                                        `
+                                        : ''
+                                }
+
                             </div>
 
                         </article>
+
                     `;
                 }
             );
@@ -364,9 +482,15 @@ window.AppUI = {
                 cards = `
 
                     <div
-                        class="rounded-2xl border border-gray-800 bg-gray-950/80 p-8 text-center text-gray-500"
+                        class="rounded-2xl border border-gray-800 bg-gray-950 p-10 text-center"
                     >
-                        No converted calls found for this selection.
+
+                        <div
+                            class="text-gray-400 text-sm"
+                        >
+                            No converted calls found.
+                        </div>
+
                     </div>
 
                 `;
@@ -380,69 +504,73 @@ window.AppUI = {
                 >
 
                     <div
-                        class="rounded-3xl border border-gray-800 bg-gray-900 shadow-2xl overflow-hidden"
+                        class="rounded-3xl border border-gray-800 bg-gray-900 overflow-hidden shadow-2xl"
                     >
 
                         <!-- MODAL HEADER -->
 
                         <div
-                            class="px-6 py-5 border-b border-gray-800 bg-gray-950/80 flex flex-wrap items-center justify-between gap-4"
+                            class="px-6 py-5 border-b border-gray-800 bg-gray-950/90"
                         >
 
-                            <div>
+                            <div
+                                class="flex flex-wrap items-center justify-between gap-4"
+                            >
 
-                                <div
-                                    class="text-[10px] uppercase tracking-[0.2em] text-indigo-400 font-semibold"
-                                >
-                                    Conversion Detail
+                                <div>
+
+                                    <div
+                                        class="text-[10px] uppercase tracking-[0.2em] text-indigo-400 font-bold"
+                                    >
+                                        Conversion Detail
+                                    </div>
+
+                                    <h2
+                                        class="text-xl font-bold text-white mt-1"
+                                    >
+                                        Converted DM Calls
+                                    </h2>
+
+                                    <p
+                                        class="text-sm text-gray-400 mt-1"
+                                    >
+                                        ${this.displayValue(
+                                            rep
+                                        )}
+
+                                        &middot;
+
+                                        ${calls.length}
+
+                                        converted
+                                        call${calls.length === 1 ? '' : 's'}
+                                    </p>
+
                                 </div>
 
-                                <h2
-                                    class="text-xl font-bold text-white mt-1"
-                                >
-                                    Converted DM Calls
-                                </h2>
 
-                                <p
-                                    class="text-sm text-gray-400 mt-1"
-                                >
-                                    ${this.getDisplayValue(
-                                        rep
-                                    )}
-
-                                    ·
-
-                                    ${total}
-
-                                    converted
-                                    call${total === 1 ? '' : 's'}
-                                </p>
-
-                            </div>
-
-
-                            <button
-                                type="button"
-                                onclick="AppUI.closeConvertedCalls()"
-                                class="h-10 w-10 rounded-xl border border-gray-800 bg-gray-900 text-gray-400 hover:text-white hover:border-gray-700 transition"
-                                aria-label="Close"
-                            >
-                                <span
-                                    class="text-xl leading-none"
+                                <button
+                                    type="button"
+                                    onclick="AppUI.closeConvertedCalls()"
+                                    class="h-10 w-10 rounded-xl border border-gray-800 bg-gray-900 text-gray-400 hover:text-white hover:border-gray-600 transition"
+                                    aria-label="Close"
                                 >
                                     &times;
-                                </span>
-                            </button>
+                                </button>
+
+                            </div>
 
                         </div>
 
 
-                        <!-- MODAL CONTENT -->
+                        <!-- MODAL BODY -->
 
                         <div
                             class="p-4 sm:p-6 space-y-4"
                         >
+
                             ${cards}
+
                         </div>
 
                     </div>
@@ -453,7 +581,7 @@ window.AppUI = {
 
 
             /*
-                Close when user clicks the dark backdrop.
+                Backdrop close.
             */
 
             modal.addEventListener(
@@ -477,7 +605,7 @@ window.AppUI = {
 
 
             /*
-                Escape key support.
+                ESC to close.
             */
 
             const escapeHandler =
@@ -506,44 +634,6 @@ window.AppUI = {
 
 
     // ==========================================
-    // DETAIL FIELD
-    // ==========================================
-
-    renderDetailField:
-        function(
-            label,
-            value
-        ) {
-
-            return `
-
-                <div
-                    class="rounded-xl border border-gray-800 bg-gray-900/50 px-4 py-3"
-                >
-
-                    <div
-                        class="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold"
-                    >
-                        ${this.escapeHtml(
-                            label
-                        )}
-                    </div>
-
-                    <div
-                        class="text-sm text-gray-200 mt-1 break-words"
-                    >
-                        ${this.getDisplayValue(
-                            value
-                        )}
-                    </div>
-
-                </div>
-
-            `;
-        },
-
-
-    // ==========================================
     // METRICS TABLE
     // ==========================================
 
@@ -559,6 +649,7 @@ window.AppUI = {
                 document.getElementById(
                     'metricsTableHead'
                 );
+
 
             const tbody =
                 document.getElementById(
@@ -630,15 +721,12 @@ window.AppUI = {
             `;
 
 
-            /*
-                Reset the clickable-call cache.
-            */
-
             this.convertedCallCache =
                 {};
 
 
-            let bodyHTML = '';
+            let bodyHTML =
+                '';
 
 
             const sortedReps =
@@ -648,7 +736,8 @@ window.AppUI = {
                 ).sort();
 
 
-            let hasData = false;
+            let hasData =
+                false;
 
 
             sortedReps.forEach(
@@ -684,13 +773,9 @@ window.AppUI = {
                             metrics.total > 0
                         ) {
 
-                            hasData = true;
+                            hasData =
+                                true;
 
-
-                            /*
-                                Store exact records for
-                                this rep and current filters.
-                            */
 
                             this.convertedCallCache[
                                 rep
@@ -725,11 +810,6 @@ window.AppUI = {
 
                                         : 'text-gray-500';
 
-
-                            /*
-                                Hyperlink displayed directly
-                                under the Converted DM Calls number.
-                            */
 
                             const convertedLink =
 
@@ -770,7 +850,7 @@ window.AppUI = {
                                     <td
                                         class="py-3 px-4 font-sans font-medium text-gray-200 sticky-col"
                                     >
-                                        ${this.getDisplayValue(
+                                        ${this.displayValue(
                                             rep
                                         )}
                                     </td>
