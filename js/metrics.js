@@ -1,20 +1,20 @@
 // ==========================================
 // js/metrics.js
-// ADVANCED METRICS & CONVERSION CALCULATIONS
+// CONVERSION DETECTION + METRICS
 // ==========================================
 
 
 // ==========================================
-// PRODUCT DETECTION
+// PRODUCT TERMS
 // ==========================================
 
 const CONVERSION_PRODUCT_RX = {
 
     sponsored:
-        /\b(?:sponsored?\s+(?:listings?|listen|slitting|linsting)|sponsor\s*listing|sponsorlisting|sl|ads?|advertis(?:ing|ement|ment)|advertisment|adverticemnt|spon|sponsore\s+listing)\b/i,
+        /\b(?:sponsored?\s+(?:listings?|listen|slitting|linsting)|sponsor\s*listing|sponsorlisting|sl|ads?|advertis(?:ing|ement|ment)|advertisment|adverticemnt|spon)\b/i,
 
     promotion:
-        /\b(?:promos?|promotions?|proms?|pormos?|promotons?|bogos?|b1g1|buy\s+one\s+get\s+one|spend\s+x\s+get\s+y|sxgy|happy\s+hour|free\s+delivery|co[- ]?fund(?:ed|ing)?|cofund(?:ed|ing)?)\b/i,
+        /\b(?:promos?|promotions?|proms?|pormos?|promotons?|bogo|bogos|b1g1|buy\s+one\s+get\s+one|sxgy|spend\s+x\s+get\s+y|happy\s+hour|free\s+delivery|co[- ]?fund(?:ed|ing)?|cofund(?:ed|ing)?)\b/i,
 
     smartCampaign:
         /\b(?:smart\s+campaigns?|sc)\b/i
@@ -22,63 +22,57 @@ const CONVERSION_PRODUCT_RX = {
 
 
 // ==========================================
-// ACTION DETECTION
+// ACTIONS
 // ==========================================
 
 const COMPLETED_ACTION_RX =
-    /\b(?:activated|reactivated|re-activated|sold|won|launched|started|closed?\s+(?:the\s+)?(?:deal|sale)|set\s*up)\b/i;
-
+    /\b(?:activated|activate|reactivated|re-activated|sold|won|launched|started|closed?\s+(?:the\s+)?(?:deal|sale)|set\s*up)\b/i;
 
 const COMMITMENT_RX =
     /\b(?:agreed|decided|confirmed|approved)\b.{0,60}\b(?:activate|start|run|use|take|set\s*up|continue\s+with)\b/i;
 
-
 const FUTURE_ACTION_RX =
-    /\b(?:will|would|wants?|willing|ready|going|needs?|plans?|trying|almost|should|supposed)\b.{0,50}\b(?:activate|start|launch|set\s*up|run)\b/i;
-
+    /\b(?:will|would|wants?|want|willing|ready|going|needs?|plans?|trying|almost|should|supposed|planning)\b.{0,60}\b(?:activate|start|launch|set\s*up|run)\b/i;
 
 const CONDITIONAL_RX =
-    /\b(?:if|once|after|until|pending)\b/i;
-
+    /\b(?:if|once|after|until|pending|when)\b/i;
 
 const NEGATIVE_RX =
     /\b(?:not\s+interested|declined?|refused?|doesn['’]?t\s+want|didn['’]?t\s+want|cancel(?:led)?|deactivat\w*|paused?|stopped|ended)\b/i;
 
-
 const EXISTING_STATE_RX =
-    /\b(?:already|currently|still|remain(?:ing)?|keep(?:ing)?|previously)\b.{0,70}\bactive\b/i;
-
+    /\b(?:already|currently|still|remain(?:ing)?|previously)\b.{0,70}\bactive\b/i;
 
 const ACTIVE_CONFIRMATION_RX =
-    /\b(?:now|currently|still|already|officially|remains?)\b.{0,50}\bactive\b/i;
-
+    /\b(?:now|currently|already|officially|remains?)\b.{0,50}\bactive\b/i;
 
 const REACTIVATION_RX =
-    /\b(?:reactivated|re-activated|reactivate|reactivation)\b/i;
-
+    /\b(?:reactivated|re-activated|reactivation)\b/i;
 
 const RENEWAL_RX =
-    /\b(?:renewed|renew|renewal)\b/i;
+    /\b(?:renewed|renewal|renew)\b/i;
 
 
 // ==========================================
-// FALSE-POSITIVE SAFETY
+// FALSE-POSITIVE CONTEXT
 // ==========================================
 
 const SETUP_CALL_RX =
-    /\bset\s*up\b.{0,40}\b(?:a\s+)?(?:call|meeting|follow[- ]?up|appointment)\b/i;
-
+    /\bset\s*up\b.{0,45}\b(?:a\s+)?(?:call|meeting|follow[- ]?up|appointment)\b/i;
 
 const SOLD_BUSINESS_RX =
-    /\b(?:sold|sell)\b.{0,25}\b(?:resto|restaurant|business|company|location)\b/i;
-
+    /\b(?:sold|sell)\b.{0,30}\b(?:resto|restaurant|business|company|location)\b/i;
 
 const SCHEDULING_AGREEMENT_RX =
-    /\b(?:agreed|decided|confirmed)\b.{0,50}\b(?:call|meeting|follow[- ]?up|appointment)\b/i;
+    /\b(?:agreed|decided|confirmed)\b.{0,60}\b(?:call|meeting|follow[- ]?up|appointment)\b/i;
 
 
 // ==========================================
 // TYPO NORMALIZATION
+//
+// IMPORTANT:
+// This only affects the detection copy.
+// It never changes the displayed note.
 // ==========================================
 
 const NORMALIZATION_REPLACEMENTS = [
@@ -110,14 +104,10 @@ const NORMALIZATION_REPLACEMENTS = [
 
 
 // ==========================================
-// NORMALIZE ONLY FOR DETECTION
+// NORMALIZE FOR DETECTION
 //
-// IMPORTANT:
-// Preserve newline characters.
-// Preserve emojis.
-// Preserve bullet characters.
-//
-// We only normalize things that improve matching.
+// NEVER destroy newlines.
+// NEVER remove emojis.
 // ==========================================
 
 function normalizeConversionText(value) {
@@ -131,8 +121,7 @@ function normalizeConversionText(value) {
 
 
     /*
-        Normalize tabs, but NEVER normalize
-        newlines into spaces.
+        Normalize spaces/tabs only.
     */
 
     text =
@@ -143,8 +132,8 @@ function normalizeConversionText(value) {
 
 
     /*
-        Normalize excessive blank lines,
-        but preserve meaningful line breaks.
+        Normalize repeated blank lines
+        without destroying line breaks.
     */
 
     text =
@@ -154,16 +143,12 @@ function normalizeConversionText(value) {
         );
 
 
-    /*
-        Typo normalization.
-    */
-
     NORMALIZATION_REPLACEMENTS.forEach(
-        ([regex, replacement]) => {
+        ([rx, replacement]) => {
 
             text =
                 text.replace(
-                    regex,
+                    rx,
                     replacement
                 );
         }
@@ -175,13 +160,14 @@ function normalizeConversionText(value) {
 
 
 // ==========================================
-// STRUCTURED NOTE SECTIONS
+// SECTION PARSER
 //
-// Handles headings even when preceded by:
-// emojis
-// bullets
-// numbers
-// spaces
+// Supports:
+// 📞 Reason of Call:
+// ✅ Actions Taken:
+// 📌 Next Steps:
+// • Actions Taken:
+// 1. Actions Taken:
 // ==========================================
 
 function splitNoteSections(note) {
@@ -193,7 +179,7 @@ function splitNoteSections(note) {
 
 
     const headingRx =
-        /(?:^|\n)\s*(?:[^\nA-Za-z0-9]{0,10}\s*)?(reason\s+of\s+call|key\s+points?\s*\/?\s*concerns?|actions?\s+taken|next\s+steps?|follow\s*up)\s*:/gi;
+        /(?:^|\n)\s*(?:[^\p{L}\p{N}\n]{0,12}\s*)?(reason\s+of\s+call|key\s+points?\s*\/?\s*concerns?|actions?\s+taken|next\s+steps?|follow\s*up)\s*:/giu;
 
 
     const matches =
@@ -218,11 +204,13 @@ function splitNoteSections(note) {
     const sections = [];
 
 
-    const firstMatchStart =
-        matches[0].index ?? 0;
+    /*
+        Text before the first known heading.
+    */
 
-
-    if (firstMatchStart > 0) {
+    if (
+        matches[0].index > 0
+    ) {
 
         sections.push({
 
@@ -233,48 +221,59 @@ function splitNoteSections(note) {
                 normalized
                     .slice(
                         0,
-                        firstMatchStart
+                        matches[0].index
                     )
                     .trim()
         });
     }
 
 
-    matches.forEach(
-        (match, index) => {
+    for (
+        let i = 0;
+        i < matches.length;
+        i++
+    ) {
 
-            const start =
-                match.index +
-                match[0].length;
-
-
-            const end =
-                index + 1 <
-                matches.length
-
-                    ? matches[index + 1].index
-
-                    : normalized.length;
+        const headingStart =
+            matches[i].index;
 
 
-            sections.push({
+        const contentStart =
+            headingStart +
+            matches[i][0].length;
 
-                type:
-                    match[1]
-                        .replace(/\s+/g, ' ')
-                        .trim()
-                        .toLowerCase(),
 
-                text:
-                    normalized
-                        .slice(
-                            start,
-                            end
-                        )
-                        .trim()
-            });
-        }
-    );
+        const contentEnd =
+
+            i + 1 < matches.length
+
+                ? matches[i + 1].index
+
+                : normalized.length;
+
+
+        sections.push({
+
+            type:
+
+                matches[i][1]
+                    .replace(
+                        /\s+/g,
+                        ' '
+                    )
+                    .trim()
+                    .toLowerCase(),
+
+            text:
+
+                normalized
+                    .slice(
+                        contentStart,
+                        contentEnd
+                    )
+                    .trim()
+        });
+    }
 
 
     return sections;
@@ -285,11 +284,14 @@ function splitNoteSections(note) {
 // FUTURE SECTION
 // ==========================================
 
-function isFutureSection(sectionType) {
+function isFutureSection(
+    sectionType
+) {
 
     const type =
-        String(sectionType || '')
-            .toLowerCase();
+        String(
+            sectionType || ''
+        ).toLowerCase();
 
 
     return (
@@ -306,7 +308,65 @@ function isFutureSection(sectionType) {
 
 
 // ==========================================
-// MATCH HELPERS
+// SPLIT CLAUSES
+// ==========================================
+
+function splitIntoClauses(
+    text
+) {
+
+    return String(text || '')
+
+        /*
+            Preserve line breaks as
+            separate semantic units.
+        */
+
+        .split(/\n+/)
+
+        /*
+            Preserve emoji content.
+            Only strip decorative bullets from
+            the boundaries of the clause.
+        */
+
+        .map(
+            value =>
+                value.trim()
+        )
+
+        .map(
+            value =>
+                value.replace(
+                    /^[•▪◦●◆■➜➤→\-]+\s*/u,
+                    ''
+                )
+        )
+
+        /*
+            Then separate sentence endings.
+        */
+
+        .flatMap(
+            value =>
+                value.split(
+                    /(?<=[.!?])\s+/u
+                )
+        )
+
+        .map(
+            value =>
+                value.trim()
+        )
+
+        .filter(
+            Boolean
+        );
+}
+
+
+// ==========================================
+// REGEX MATCHES
 // ==========================================
 
 function allMatches(
@@ -320,7 +380,7 @@ function allMatches(
             : `${regex.flags}g`;
 
 
-    const globalRegex =
+    const rx =
         new RegExp(
             regex.source,
             flags
@@ -328,10 +388,9 @@ function allMatches(
 
 
     return [
-        ...String(text || '')
-            .matchAll(
-                globalRegex
-            )
+        ...String(
+            text || ''
+        ).matchAll(rx)
     ];
 }
 
@@ -348,7 +407,6 @@ function hasNearbyMatch(
             productRegex,
             text
         );
-
 
     const actions =
         allMatches(
@@ -381,14 +439,14 @@ function hasNearbyMatch(
 
 
 // ==========================================
-// PRODUCT DETECTOR
+// PRODUCTS
 // ==========================================
 
 function detectProducts(
     text
 ) {
 
-    const products = [];
+    const categories = [];
 
 
     if (
@@ -397,7 +455,7 @@ function detectProducts(
             .test(text)
     ) {
 
-        products.push(
+        categories.push(
             'sponsored'
         );
     }
@@ -409,7 +467,7 @@ function detectProducts(
             .test(text)
     ) {
 
-        products.push(
+        categories.push(
             'promotion'
         );
     }
@@ -421,86 +479,31 @@ function detectProducts(
             .test(text)
     ) {
 
-        products.push(
+        categories.push(
             'smart_campaign'
         );
     }
 
 
-    return products;
+    return categories;
 }
 
 
 // ==========================================
-// CLAUSE SPLITTER
-//
-// IMPORTANT:
-// Newline characters are deliberately
-// treated as boundaries.
-// Emojis are preserved.
-// ==========================================
-
-function splitIntoClauses(
-    text
-) {
-
-    return String(text || '')
-
-        /*
-            Newlines are hard boundaries.
-        */
-
-        .split(
-            /\n+/
-        )
-
-        .flatMap(
-            line =>
-                line.split(
-                    /[•▪◦●◆■]+/
-                )
-        )
-
-        .flatMap(
-            line =>
-                line.split(
-                    /(?<=[.!?])\s+/
-                )
-        )
-
-        .flatMap(
-            line =>
-                line.split(
-                    /(?:\s*;\s*)/
-                )
-        )
-
-        .map(
-            clause =>
-                clause.trim()
-        )
-
-        .filter(
-            Boolean
-        );
-}
-
-
-// ==========================================
-// CLASSIFY CONVERSION
+// MAIN CLASSIFIER
 // ==========================================
 
 function classifyConversion(
     rawNote
 ) {
 
-    const note =
+    const normalizedNote =
         normalizeConversionText(
             rawNote
         );
 
 
-    if (!note) {
+    if (!normalizedNote) {
 
         return {
 
@@ -521,7 +524,7 @@ function classifyConversion(
 
     const sections =
         splitNoteSections(
-            note
+            normalizedNote
         );
 
 
@@ -590,6 +593,12 @@ function classifyConversion(
                 );
 
 
+            const hasFuture =
+                FUTURE_ACTION_RX.test(
+                    clause
+                );
+
+
             const hasExisting =
                 EXISTING_STATE_RX.test(
                     clause
@@ -598,12 +607,6 @@ function classifyConversion(
 
             const hasActiveConfirmation =
                 ACTIVE_CONFIRMATION_RX.test(
-                    clause
-                );
-
-
-            const hasFuture =
-                FUTURE_ACTION_RX.test(
                     clause
                 );
 
@@ -643,7 +646,7 @@ function classifyConversion(
 
                     clause,
 
-                    /(?:sponsored?\s+(?:listings?|listen|slitting|linsting)|sponsor\s*listing|sponsorlisting|\bsl\b|\bads?\b|advertis\w*|\bspon\w*\b|\bprom\w*\b|\bbogo\w*\b|\bb1g1\b|co[- ]?fund\w*|\bcofund\w*\b|\bsxgy\b|happy\s+hour|free\s+delivery)/i,
+                    /(?:sponsored?\s+(?:listings?|listen|slitting|linsting)|sponsor\s*listing|sponsorlisting|\bsl\b|\bads?\b|advertis\w*|\bspon\w*\b|\bprom\w*\b|\bbogo\w*\b|\bb1g1\b|co[- ]?fund\w*|\bcofund\w*\b|\bsxgy\b|happy\s+hour|free\s+delivery)/iu,
 
                     COMPLETED_ACTION_RX,
 
@@ -687,85 +690,14 @@ function classifyConversion(
                         'converted',
 
                     categories:
-                        [
-                            ...result.categories
-                        ],
+                        [...result.categories],
 
                     reason:
                         'product_and_completed_action_same_clause',
 
-                    /*
-                        Keep the normalized evidence
-                        for auditing.
-                    */
-
                     evidence:
                         clause
                 };
-            }
-
-
-            /*
-                REACTIVATION
-            */
-
-            if (
-
-                canProveConversion &&
-
-                hasReactivate &&
-
-                !hasNegative &&
-
-                !hasFuture
-
-            ) {
-
-                result.status =
-                    'reactivated';
-
-
-                result.reason =
-                    'reactivation_detected';
-
-
-                result.evidence =
-                    clause;
-
-
-                continue;
-            }
-
-
-            /*
-                RENEWAL
-            */
-
-            if (
-
-                canProveConversion &&
-
-                hasRenewal &&
-
-                !hasNegative &&
-
-                !hasFuture
-
-            ) {
-
-                result.status =
-                    'renewed';
-
-
-                result.reason =
-                    'renewal_detected';
-
-
-                result.evidence =
-                    clause;
-
-
-                continue;
             }
 
 
@@ -803,14 +735,65 @@ function classifyConversion(
                 result.status =
                     'committed';
 
-
                 result.reason =
                     'explicit_unconditional_commitment';
-
 
                 result.evidence =
                     clause;
 
+                continue;
+            }
+
+
+            /*
+                REACTIVATION
+            */
+
+            if (
+
+                canProveConversion &&
+
+                hasReactivate &&
+
+                !hasFuture
+
+            ) {
+
+                result.status =
+                    'reactivated';
+
+                result.reason =
+                    'reactivation_detected';
+
+                result.evidence =
+                    clause;
+
+                continue;
+            }
+
+
+            /*
+                RENEWAL
+            */
+
+            if (
+
+                canProveConversion &&
+
+                hasRenewal &&
+
+                !hasFuture
+
+            ) {
+
+                result.status =
+                    'renewed';
+
+                result.reason =
+                    'renewal_detected';
+
+                result.evidence =
+                    clause;
 
                 continue;
             }
@@ -832,22 +815,19 @@ function classifyConversion(
                     result.status =
                         'existing_active';
 
-
                     result.reason =
                         'existing_campaign_state';
-
 
                     result.evidence =
                         clause;
                 }
-
 
                 continue;
             }
 
 
             /*
-                ACTIVE CONFIRMATION
+                CONFIRMATION
             */
 
             if (
@@ -862,15 +842,12 @@ function classifyConversion(
                     result.status =
                         'confirmation_only';
 
-
                     result.reason =
                         'activation_confirmation';
-
 
                     result.evidence =
                         clause;
                 }
-
 
                 continue;
             }
@@ -881,8 +858,11 @@ function classifyConversion(
             */
 
             if (
+
                 hasFuture ||
+
                 !canProveConversion
+
             ) {
 
                 if (
@@ -893,15 +873,12 @@ function classifyConversion(
                     result.status =
                         'future_pending';
 
-
                     result.reason =
                         'future_or_pending';
-
 
                     result.evidence =
                         clause;
                 }
-
 
                 continue;
             }
@@ -923,10 +900,8 @@ function classifyConversion(
                     result.status =
                         'declined';
 
-
                     result.reason =
                         'negative_or_deactivation';
-
 
                     result.evidence =
                         clause;
@@ -941,45 +916,50 @@ function classifyConversion(
         ...result,
 
         categories:
-            [
-                ...result.categories
-            ]
+            [...result.categories]
     };
 }
 
 
 // ==========================================
-// CONNECTED CALL
+// CONNECTED DISPOSITION
 // ==========================================
 
 function isConnectedDisposition(
     disposition
 ) {
 
+    const value =
+        String(
+            disposition || ''
+        )
+            .trim()
+            .toLowerCase();
+
+
     const nonConnects =
         new Set([
+
             'left voicemail',
+
             'no answer',
+
             'left message',
+
             'incorrect phone number',
+
             ''
         ]);
 
 
     return !nonConnects.has(
-
-        String(
-            disposition || ''
-        )
-            .toLowerCase()
-            .trim()
-
+        value
     );
 }
 
 
 // ==========================================
-// CLASSIFICATION ACCESS
+// CLASSIFICATION ACCESSOR
 // ==========================================
 
 function getCallClassification(
@@ -1018,7 +998,6 @@ function getCallClassification(
 
 
     return classifyConversion(
-
         call?.originalNote ||
         call?.note ||
         ''
@@ -1027,7 +1006,7 @@ function getCallClassification(
 
 
 // ==========================================
-// MAIN METRICS
+// METRICS
 // ==========================================
 
 window.AppMetrics = {
@@ -1044,67 +1023,48 @@ window.AppMetrics = {
             let totalDMCalls =
                 0;
 
-
             let connectedDMCalls =
                 0;
-
 
             let convertedCalls =
                 0;
 
-
             let committedCalls =
                 0;
-
 
             let ambiguousCalls =
                 0;
 
-
             let reactivatedCalls =
                 0;
-
 
             let renewedCalls =
                 0;
 
-
             let existingActiveCalls =
                 0;
-
 
             let confirmationOnlyCalls =
                 0;
 
-
             let futurePendingCalls =
                 0;
-
 
             let declinedCalls =
                 0;
 
-
             let sponsoredConversions =
                 0;
-
 
             let promotionConversions =
                 0;
 
-
             let smartOnlyConversions =
                 0;
-
 
             let multiProductConversions =
                 0;
 
-
-            /*
-                Exact converted call records
-                for drill-down.
-            */
 
             const convertedRecords =
                 [];
@@ -1137,11 +1097,9 @@ window.AppMetrics = {
 
                         if (
 
-                            call.date <
-                                startDate ||
+                            call.date < startDate ||
 
-                            call.date >
-                                endDate ||
+                            call.date > endDate ||
 
                             !repMatches ||
 
@@ -1158,12 +1116,13 @@ window.AppMetrics = {
 
                         if (
 
-                            !call.purpose ||
-
-                            call.purpose
+                            String(
+                                call.purpose ||
+                                ''
+                            )
                                 .trim()
                                 .toLowerCase() !==
-                                'decision maker call'
+                            'decision maker call'
 
                         ) {
 
@@ -1194,7 +1153,8 @@ window.AppMetrics = {
 
 
                         const categories =
-                            classification.categories ||
+                            classification
+                                .categories ||
                             [];
 
 
@@ -1216,25 +1176,16 @@ window.AppMetrics = {
                             );
 
 
-                        /*
-                            STRICT CONVERSION
-                        */
-
                         if (
 
                             classification.status ===
-                                'converted'
+                            'converted'
 
                         ) {
 
-                            const qualifies =
-
-                                hasSponsored ||
-                                hasPromotion;
-
-
                             if (
-                                qualifies
+                                hasSponsored ||
+                                hasPromotion
                             ) {
 
                                 convertedCalls++;
@@ -1243,7 +1194,6 @@ window.AppMetrics = {
                                 if (
                                     hasSponsored
                                 ) {
-
                                     sponsoredConversions++;
                                 }
 
@@ -1251,7 +1201,6 @@ window.AppMetrics = {
                                 if (
                                     hasPromotion
                                 ) {
-
                                     promotionConversions++;
                                 }
 
@@ -1265,12 +1214,10 @@ window.AppMetrics = {
                                 }
 
 
-                                /*
-                                    THE EXACT SOURCE CALL
-                                */
-
                                 convertedRecords
-                                    .push(call);
+                                    .push(
+                                        call
+                                    );
 
                             } else if (
 
