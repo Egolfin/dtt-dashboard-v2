@@ -3,15 +3,21 @@
 // CORE DATA ENGINE & LOCAL STORAGE
 // ==========================================
 
+const DATA_SCHEMA_VERSION = 2;
+
 window.AppState = {
+    schemaVersion: DATA_SCHEMA_VERSION,
+
     rawCallData: [],
     manualEntries: [],
     parsedDates: [],
     allKnownReps: new Set(),
+
     currentMode: 'weekly',
     fileName: '',
     selectedQuarter: '1',
     selectedTeam: 'ALL',
+
     startDateStr: '',
     endDateStr: ''
 };
@@ -182,30 +188,23 @@ function parseDateString(str) {
     const value =
         String(str).trim();
 
-
     const isoMatch =
         value.match(
             /(\d{4})-(\d{2})-(\d{2})/
         );
 
-
     if (isoMatch) {
-
         return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
     }
-
 
     const usMatch =
         value.match(
             /(\d{1,2})\/(\d{1,2})\/(\d{4})/
         );
 
-
     if (usMatch) {
-
         return `${usMatch[3]}-${usMatch[1].padStart(2, '0')}-${usMatch[2].padStart(2, '0')}`;
     }
-
 
     const months = {
         jan: '01',
@@ -222,45 +221,36 @@ function parseDateString(str) {
         dec: '12'
     };
 
-
     const textMatch =
         value.match(
             /([a-zA-Z]{3})\s+(\d{1,2})\s+(\d{4})/
         );
 
-
     if (textMatch) {
 
         const month =
             months[
-                textMatch[1]
-                    .toLowerCase()
+                textMatch[1].toLowerCase()
             ];
 
-
         if (month) {
-
             return `${textMatch[3]}-${month}-${textMatch[2].padStart(2, '0')}`;
         }
     }
 
-
     const d =
         new Date(value);
 
-
     if (!isNaN(d.getTime())) {
-
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
-
 
     return null;
 }
 
 
 // ==========================================
-// DATE INCREMENT
+// DATE HELPERS
 // ==========================================
 
 function addDaysToStringDate(
@@ -275,10 +265,8 @@ function addDaysToStringDate(
         return dateStr;
     }
 
-
     const parts =
         dateStr.split('-');
-
 
     const d =
         new Date(
@@ -287,19 +275,13 @@ function addDaysToStringDate(
             parseInt(parts[2], 10)
         );
 
-
     d.setDate(
         d.getDate() + days
     );
 
-
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-
-// ==========================================
-// DATE FILTERS
-// ==========================================
 
 function refreshDateFilterOptions() {
 
@@ -319,11 +301,8 @@ function refreshDateFilterOptions() {
         )
         .sort();
 
-
     window.AppState.parsedDates =
-        [
-            ...new Set(allDates)
-        ];
+        [...new Set(allDates)];
 }
 
 
@@ -334,7 +313,7 @@ function refreshDateFilterOptions() {
 const DB_NAME =
     'DTT_Analytics_Pro_DB';
 
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 
 function openDB() {
@@ -348,13 +327,11 @@ function openDB() {
                     DB_VERSION
                 );
 
-
             request.onupgradeneeded =
                 event => {
 
                     const db =
                         event.target.result;
-
 
                     if (
                         !db.objectStoreNames
@@ -367,13 +344,11 @@ function openDB() {
                     }
                 };
 
-
             request.onsuccess =
                 event =>
                     resolve(
                         event.target.result
                     );
-
 
             request.onerror =
                 event =>
@@ -392,30 +367,29 @@ async function saveAppState() {
         const db =
             await openDB();
 
-
         const tx =
             db.transaction(
                 'app_state',
                 'readwrite'
             );
 
-
         const store =
             tx.objectStore(
                 'app_state'
             );
 
-
         const stateToSave = {
+
             ...window.AppState,
+
+            schemaVersion:
+                DATA_SCHEMA_VERSION,
 
             allKnownReps:
                 Array.from(
-                    window.AppState
-                        .allKnownReps
+                    window.AppState.allKnownReps
                 )
         };
-
 
         store.put(
             stateToSave,
@@ -433,162 +407,57 @@ async function saveAppState() {
 
 
 // ==========================================
-// CONVERSION FIELD REPAIR
-// ==========================================
-
-function ensureConversionFields() {
-
-    if (
-        !window.AppState.rawCallData
-    ) {
-        return;
-    }
-
-
-    window.AppState.rawCallData.forEach(
-        call => {
-
-            if (
-                !call.conversionStatus ||
-                !Array.isArray(
-                    call.conversionCategories
-                )
-            ) {
-
-                const classification =
-                    classifyConversion(
-                        call.originalNote ||
-                        call.note ||
-                        ''
-                    );
-
-
-                call.conversionStatus =
-                    classification.status;
-
-
-                call.conversionCategories =
-                    classification.categories;
-
-
-                call.conversionReason =
-                    classification.reason;
-
-
-                call.conversionEvidence =
-                    classification.evidence;
-            }
-        }
-    );
-}
-
-
-// ==========================================
 // CSV PROCESSOR
 // ==========================================
 
 function processCSVData(data) {
 
-    window.AppState.rawCallData =
-        [];
+    window.AppState.rawCallData = [];
 
-
-    window.AppState.allKnownReps
-        .clear();
-
+    window.AppState.allKnownReps.clear();
 
     data.forEach(row => {
 
-        const firstName =
+        /*
+            ALWAYS READ THE EXACT CSV HEADERS.
+        */
+
+        const userFirstName =
             String(
                 row['User First Name'] ||
-                row['User FirstName'] ||
                 ''
-            ).trim();
+            );
 
-
-        const lastName =
+        const userLastName =
             String(
                 row['User Last Name'] ||
-                row['User LastName'] ||
                 ''
-            ).trim();
-
+            );
 
         const userFullName =
-            `${firstName} ${lastName}`.trim();
-
+            `${userFirstName} ${userLastName}`
+                .trim();
 
         const repName =
             userFullName ||
-
             String(
                 row['Prospect Owner Name'] ||
                 row['User Name'] ||
                 'Unknown Rep'
-            ).trim();
-
-
-        let durationSec =
-            parseFloat(
-                row['Duration in Seconds'] ||
-                row['Duration'] ||
-                0
             );
-
-
-        if (isNaN(durationSec)) {
-            durationSec = 0;
-        }
 
 
         /*
-            PRESERVE THE RAW CSV VALUES.
-
-            Do NOT lowercase or normalize these fields.
+            RAW CALL FIELDS
+            ----------------
+            Do not normalize these.
         */
 
-        const createdAt =
+        const id =
             String(
-                row['Created At'] ||
+                row['Id'] ||
                 ''
             );
-
-
-        const answeredAt =
-            String(
-                row['Answered At'] ||
-                ''
-            );
-
-
-        const completedAt =
-            String(
-                row['Completed At'] ||
-                ''
-            );
-
-
-        const direction =
-            String(
-                row['Direction'] ||
-                ''
-            );
-
-
-        const from =
-            String(
-                row['From'] ||
-                ''
-            );
-
-
-        const to =
-            String(
-                row['To'] ||
-                ''
-            );
-
 
         const state =
             String(
@@ -596,6 +465,48 @@ function processCSVData(data) {
                 ''
             );
 
+        const createdAt =
+            String(
+                row['Created At'] ||
+                ''
+            );
+
+        const answeredAt =
+            String(
+                row['Answered At'] ||
+                ''
+            );
+
+        const completedAt =
+            String(
+                row['Completed At'] ||
+                ''
+            );
+
+        const durationRaw =
+            String(
+                row['Duration in Seconds'] ||
+                row['Duration'] ||
+                ''
+            );
+
+        const direction =
+            String(
+                row['Direction'] ||
+                ''
+            );
+
+        const from =
+            String(
+                row['From'] ||
+                ''
+            );
+
+        const to =
+            String(
+                row['To'] ||
+                ''
+            );
 
         const outcome =
             String(
@@ -603,13 +514,11 @@ function processCSVData(data) {
                 ''
             );
 
-
         const purpose =
             String(
                 row['Purpose'] ||
                 ''
             ).trim();
-
 
         const disposition =
             String(
@@ -618,12 +527,15 @@ function processCSVData(data) {
             ).trim();
 
 
+        /*
+            PROSPECT
+        */
+
         const prospectFirstName =
             String(
                 row['Prospect First Name'] ||
                 ''
             ).trim();
-
 
         const prospectLastName =
             String(
@@ -631,11 +543,9 @@ function processCSVData(data) {
                 ''
             ).trim();
 
-
         const prospectFullName =
             `${prospectFirstName} ${prospectLastName}`
                 .trim();
-
 
         const prospectCompany =
             String(
@@ -645,17 +555,13 @@ function processCSVData(data) {
 
 
         /*
-            CRITICAL:
+            IMPORTANT:
+            Keep the Note EXACTLY as it appears
+            in the CSV.
 
-            originalNote is NEVER modified.
-
-            This preserves:
-            - emojis
-            - line breaks
-            - bullets
-            - capitalization
-            - spacing
-            - symbols
+            No lowercase.
+            No trim that removes line breaks.
+            No whitespace replacement.
         */
 
         const originalNote =
@@ -666,178 +572,213 @@ function processCSVData(data) {
 
 
         /*
-            note is retained for backwards compatibility.
-
-            It is NOT used for display.
+            Detection gets a separate copy.
+            It can normalize this internally.
         */
 
-        const note =
-            originalNote;
+        const conversion =
+            classifyConversion(
+                originalNote
+            );
 
 
-        const recordId =
-            String(
-                row['Id'] ||
-                row['Record Id'] ||
-                row['ID'] ||
-                ''
-            ).trim();
+        let durationSec =
+            parseFloat(
+                durationRaw
+            );
+
+        if (isNaN(durationSec)) {
+            durationSec = 0;
+        }
 
 
-        const dateStr =
-            createdAt ||
-            completedAt ||
-            '';
-
-
-        const parsedDate =
+        const dateForFilter =
             parseDateString(
-                dateStr
+                createdAt ||
+                completedAt
             );
 
 
         if (
             repName &&
-            parsedDate
+            dateForFilter
         ) {
 
             const dtt =
-                (durationSec / 60.0) +
-                1.0;
+                (durationSec / 60) +
+                1;
 
 
-            /*
-                Conversion classification uses the
-                raw note. The classifier creates its
-                own internal normalized copy.
-            */
+            window.AppState.rawCallData
+                .push({
 
-            const conversion =
-                classifyConversion(
-                    originalNote
-                );
+                    /*
+                        Exact CSV fields
+                    */
 
+                    id:
 
-            window.AppState.rawCallData.push({
+                        id,
 
-                id:
-                    recordId,
+                    state:
 
+                        state,
 
-                rep:
-                    repName,
+                    createdAt:
 
+                        createdAt,
 
-                userFullName:
-                    userFullName,
+                    answeredAt:
 
+                        answeredAt,
 
-                date:
-                    parsedDate,
+                    completedAt:
 
+                        completedAt,
 
-                createdAt:
-                    createdAt,
+                    durationSec:
 
+                        durationSec,
 
-                answeredAt:
-                    answeredAt,
+                    direction:
 
+                        direction,
 
-                completedAt:
-                    completedAt,
+                    from:
 
+                        from,
 
-                dtt:
-                    dtt,
+                    to:
 
+                        to,
 
-                purpose:
-                    purpose,
+                    outcome:
 
+                        outcome,
 
-                disposition:
-                    disposition,
+                    purpose:
 
+                        purpose,
 
-                outcome:
-                    outcome,
+                    disposition:
+
+                        disposition,
 
 
-                state:
-                    state,
+                    /*
+                        User
+                    */
+
+                    userFirstName:
+
+                        userFirstName,
+
+                    userLastName:
+
+                        userLastName,
+
+                    userFullName:
+
+                        userFullName,
 
 
-                direction:
-                    direction,
+                    /*
+                        Prospect
+                    */
+
+                    prospectFirstName:
+
+                        prospectFirstName,
+
+                    prospectLastName:
+
+                        prospectLastName,
+
+                    prospectFullName:
+
+                        prospectFullName,
+
+                    prospectCompany:
+
+                        prospectCompany,
 
 
-                from:
-                    from,
+                    /*
+                        Existing dashboard fields
+                    */
+
+                    rep:
+
+                        repName,
+
+                    date:
+
+                        dateForFilter,
+
+                    dtt:
+
+                        dtt,
 
 
-                to:
-                    to,
+                    /*
+                        NOTE
+                        Original value preserved.
+                    */
+
+                    note:
+
+                        originalNote,
+
+                    originalNote:
+
+                        originalNote,
 
 
-                prospectFirstName:
-                    prospectFirstName,
+                    /*
+                        Conversion classification
+                    */
 
+                    conversionStatus:
 
-                prospectLastName:
-                    prospectLastName,
+                        conversion.status,
 
+                    conversionCategories:
 
-                prospectFullName:
-                    prospectFullName,
+                        conversion.categories,
 
+                    conversionReason:
 
-                prospectCompany:
-                    prospectCompany,
+                        conversion.reason,
 
+                    conversionEvidence:
 
-                /*
-                    Original untouched note.
-                */
+                        conversion.evidence
+                });
 
-                note:
-                    note,
-
-                originalNote:
-                    originalNote,
-
-
-                conversionStatus:
-                    conversion.status,
-
-
-                conversionCategories:
-                    conversion.categories,
-
-
-                conversionReason:
-                    conversion.reason,
-
-
-                conversionEvidence:
-                    conversion.evidence
-            });
-
-
-            window.AppState
-                .allKnownReps
+            window.AppState.allKnownReps
                 .add(repName);
         }
     });
 
 
-    window.AppState.manualEntries.forEach(
-        m =>
-            window.AppState
-                .allKnownReps
-                .add(m.rep)
-    );
+    window.AppState.schemaVersion =
+        DATA_SCHEMA_VERSION;
+
+    window.AppState.fileName =
+        window.AppState.fileName ||
+        'CSV Import';
+
+
+    window.AppState.manualEntries
+        .forEach(
+            entry =>
+                window.AppState
+                    .allKnownReps
+                    .add(entry.rep)
+        );
 
 
     refreshDateFilterOptions();
+
+    saveAppState();
 }
