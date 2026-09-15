@@ -1,0 +1,86 @@
+name: Apply report export integration
+
+on:
+  push:
+    branches:
+      - report-export-png-pdf
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-report-export:
+    if: ${{ !contains(github.event.head_commit.message, 'Integrate PNG PDF exports') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply targeted export integration
+        shell: python
+        run: |
+          from pathlib import Path
+
+          index_path = Path('index.html')
+          app_path = Path('js/app.js')
+
+          index = index_path.read_text(encoding='utf-8')
+          app = app_path.read_text(encoding='utf-8')
+
+          marker = 'report-export.js?v=1'
+          if marker in index:
+              raise SystemExit('Export integration already present; nothing to do.')
+
+          old_libs = '''    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>\n    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>'''
+          new_libs = '''    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>\n    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>\n    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>'''
+          if old_libs not in index:
+              raise SystemExit('Expected library block not found in index.html')
+          index = index.replace(old_libs, new_libs, 1)
+
+          old_button = '''<button id="exportPdfBtn" class="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>PDF</button>'''
+
+          # Use the exact current PDF button from the repository.
+          if old_button not in index:
+              old_button = '''                        <button id="exportPdfBtn" class="bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01.293.707z"/></svg>PDF</button>'''
+          if old_button not in index:
+              # Safer marker-based replacement around the current PDF button.
+              start = index.find('<button id="exportPdfBtn"')
+              if start < 0:
+                  raise SystemExit('PDF button not found in index.html')
+              end = index.find('</button>', start)
+              if end < 0:
+                  raise SystemExit('PDF button closing tag not found in index.html')
+              end += len('</button>')
+              current_button = index[start:end]
+          else:
+              current_button = old_button
+
+          png_button = '''\n                        <button id="exportPngBtn" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium py-2 px-3 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap">PNG</button>'''
+          index = index.replace(current_button, current_button + png_button, 1)
+
+          old_scripts = '''    <script src="js/data.js?v=12"></script>\n    <script src="js/metrics.js?v=12"></script>\n    <script src="js/ui.js?v=12"></script>\n    <script src="js/app.js?v=12"></script>'''
+          new_scripts = '''    <script src="js/data.js?v=12"></script>\n    <script src="js/metrics.js?v=12"></script>\n    <script src="js/ui.js?v=12"></script>\n    <script src="js/report-export.js?v=1"></script>\n    <script src="js/app.js?v=13"></script>'''
+          if old_scripts not in index:
+              raise SystemExit('Expected script block not found in index.html')
+          index = index.replace(old_scripts, new_scripts, 1)
+
+          old_handler = "document.getElementById('exportPdfBtn')?.addEventListener('click', () => window.print());"
+          new_handler = '''document.getElementById('exportPdfBtn')?.addEventListener('click', () => {\n            try {\n                window.AppReportExport.printPdf();\n            } catch (error) {\n                console.error('PDF export failed:', error);\n                alert(`PDF export failed: ${error?.message || error}`);\n            }\n        });\n\n        document.getElementById('exportPngBtn')?.addEventListener('click', async () => {\n            try {\n                await window.AppReportExport.exportPng();\n            } catch (error) {\n                console.error('PNG export failed:', error);\n                alert(`PNG export failed: ${error?.message || error}`);\n            }\n        });'''
+          if old_handler not in app:
+              raise SystemExit('PDF event handler not found in app.js')
+          app = app.replace(old_handler, new_handler, 1)
+
+          index_path.write_text(index, encoding='utf-8')
+          app_path.write_text(app, encoding='utf-8')
+
+      - name: Remove one-time integration workflow
+        run: rm .github/workflows/apply-report-export.yml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html js/app.js .github/workflows/apply-report-export.yml
+          git diff --cached --check
+          git commit -m "Integrate PNG PDF exports"
+          git push origin HEAD:report-export-png-pdf
