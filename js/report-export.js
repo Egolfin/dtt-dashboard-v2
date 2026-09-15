@@ -1,157 +1,522 @@
 // ==========================================
 // js/report-export.js
-// REPORT EXPORTS (PNG + PRINT-OPTIMIZED PDF)
+// FIXED-GRID REPORT EXPORTS (PNG + PDF)
 // ==========================================
 
 window.AppReportExport = {
-    buildReportClone() {
-        const source = document.getElementById('matrixTableSection');
-        if (!source) throw new Error('DTT report section was not found.');
+    getReportData() {
+        const table = document.getElementById('dttTable');
 
-        const clone = source.cloneNode(true);
-        clone.classList.remove('hidden');
-        clone.classList.add('dtt-export-report');
-
-        // The live table uses sticky positioning and a constrained scroll wrapper.
-        // For exports we remove those constraints so every rep/date column is rendered.
-        const scrollWrapper = clone.querySelector('#tableScrollWrapper');
-        if (scrollWrapper) {
-            scrollWrapper.style.maxHeight = 'none';
-            scrollWrapper.style.overflow = 'visible';
-            scrollWrapper.style.position = 'static';
+        if (!table) {
+            throw new Error('DTT report table was not found.');
         }
 
-        clone.querySelectorAll('.sticky-col, .sticky-header').forEach(el => {
-            el.style.position = 'static';
-            el.style.zIndex = 'auto';
-        });
+        const headers = Array.from(
+            table.querySelectorAll('thead th')
+        ).map(th => th.textContent.trim());
 
-        clone.querySelectorAll('.dtt-export-hide').forEach(el => el.remove());
+        const rows = Array.from(
+            table.querySelectorAll('tbody tr')
+        )
+            .map(tr =>
+                Array.from(tr.querySelectorAll('td')).map(td => ({
+                    text: td.textContent.trim(),
+                    heat:
+                        td.querySelector('.heat-green') ? 'green' :
+                        td.querySelector('.heat-yellow') ? 'yellow' :
+                        td.querySelector('.heat-red') ? 'red' :
+                        ''
+                }))
+            )
+            .filter(row => row.length);
 
-        const title = document.createElement('div');
-        title.className = 'dtt-export-title';
-        title.innerHTML = `
-            <div>
-                <div class="dtt-export-kicker">DOORDASH · DTT ANALYTICS</div>
-                <div class="dtt-export-heading">DTT Performance Report</div>
-                <div class="dtt-export-subheading">${escapeHtml(document.getElementById('reportSubtitle')?.textContent || '')}</div>
+        const footer = Array.from(
+            table.querySelectorAll('tfoot td')
+        ).map(td => td.textContent.trim());
+
+        return { headers, rows, footer };
+    },
+
+    buildReport() {
+        const { headers, rows, footer } = this.getReportData();
+
+        const title =
+            document.getElementById('reportHeaderTitle')?.textContent ||
+            'DTT Performance Summary';
+
+        const subtitle =
+            document.getElementById('reportSubtitle')?.textContent ||
+            '';
+
+        const report = document.createElement('div');
+        report.className = 'dtt-export-sheet';
+
+        // Fixed widths prevent the browser from squeezing columns unevenly.
+        const repColumnWidth = 250;
+        const numericColumnWidth = 92;
+
+        const totalWidth =
+            repColumnWidth +
+            ((headers.length - 1) * numericColumnWidth);
+
+        report.style.width = `${totalWidth}px`;
+
+        const headerHtml = headers
+            .map((header, index) => `
+                <th class="${index === 0 ? 'rep-col' : 'num-col'}">
+                    ${escapeReportHtml(header)}
+                </th>
+            `)
+            .join('');
+
+        const bodyHtml = rows
+            .map(row => `
+                <tr>
+                    ${row.map((cell, index) => `
+                        <td class="${index === 0 ? 'rep-col' : 'num-col'}">
+                            ${
+                                cell.heat
+                                    ? `<span class="value-pill heat-${cell.heat}">${escapeReportHtml(cell.text)}</span>`
+                                    : escapeReportHtml(cell.text)
+                            }
+                        </td>
+                    `).join('')}
+                </tr>
+            `)
+            .join('');
+
+        const footerHtml = footer.length
+            ? `
+                <tfoot>
+                    <tr>
+                        ${footer.map((value, index) => `
+                            <td class="${index === 0 ? 'rep-col' : 'num-col'}">
+                                ${escapeReportHtml(value)}
+                            </td>
+                        `).join('')}
+                    </tr>
+                </tfoot>
+            `
+            : '';
+
+        report.innerHTML = `
+            <style>
+                ${this.reportStyles()}
+            </style>
+
+            <div class="report-top">
+                <div>
+                    <div class="report-kicker">
+                        DOORDASH · DTT ANALYTICS
+                    </div>
+
+                    <h1>
+                        ${escapeReportHtml(title)}
+                    </h1>
+
+                    <div class="report-subtitle">
+                        ${escapeReportHtml(subtitle)}
+                    </div>
+                </div>
+
+                <div class="report-legend">
+                    <span class="legend red">&lt; 50m</span>
+                    <span class="legend yellow">50m - 69m</span>
+                    <span class="legend green">&ge; 70m</span>
+                    <span class="target">Target: 350m/week</span>
+                </div>
             </div>
-            <div class="dtt-export-meta">${escapeHtml(document.getElementById('reportHeaderTitle')?.textContent || '')}</div>
-        `;
-        clone.insertBefore(title, clone.firstChild);
 
-        return clone;
+            <table class="export-table">
+                <colgroup>
+                    <col style="width:${repColumnWidth}px">
+
+                    ${headers
+                        .slice(1)
+                        .map(
+                            () =>
+                                `<col style="width:${numericColumnWidth}px">`
+                        )
+                        .join('')}
+                </colgroup>
+
+                <thead>
+                    <tr>
+                        ${headerHtml}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${bodyHtml}
+                </tbody>
+
+                ${footerHtml}
+            </table>
+        `;
+
+        return report;
     },
 
     async exportPng() {
         if (!window.html2canvas) {
-            throw new Error('PNG export library is not available.');
+            throw new Error(
+                'PNG export library is not available.'
+            );
         }
 
-        const clone = this.buildReportClone();
-        this.mountOffscreen(clone);
+        const report = this.buildReport();
+
+        this.mount(report);
 
         try {
-            const canvas = await window.html2canvas(clone, {
-                backgroundColor: '#090d16',
-                scale: Math.min(2, window.devicePixelRatio || 1),
-                useCORS: true,
-                logging: false,
-                width: clone.scrollWidth,
-                height: clone.scrollHeight,
-                windowWidth: clone.scrollWidth,
-                windowHeight: clone.scrollHeight
-            });
+            if (document.fonts?.ready) {
+                await document.fonts.ready;
+            }
+
+            const canvas =
+                await window.html2canvas(report, {
+                    backgroundColor: '#090d16',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    width: report.offsetWidth,
+                    height: report.offsetHeight,
+                    windowWidth: report.offsetWidth,
+                    windowHeight: report.offsetHeight,
+                    scrollX: 0,
+                    scrollY: 0
+                });
 
             const link = document.createElement('a');
+
             link.download = this.fileName('png');
             link.href = canvas.toDataURL('image/png');
+
             link.click();
         } finally {
-            clone.remove();
+            report.remove();
         }
     },
 
     printPdf() {
-        const clone = this.buildReportClone();
-        this.mountOffscreen(clone);
+        const report = this.buildReport();
 
-        const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+        const printWindow =
+            window.open('', '_blank');
+
         if (!printWindow) {
-            clone.remove();
-            throw new Error('The browser blocked the report window. Please allow pop-ups for this site.');
+            throw new Error(
+                'The browser blocked the report window. Please allow pop-ups for this site.'
+            );
         }
 
-        const styles = Array.from(document.styleSheets)
-            .map(sheet => {
-                try {
-                    return Array.from(sheet.cssRules || []).map(rule => rule.cssText).join('\\n');
-                } catch {
-                    return '';
-                }
-            })
-            .join('\\n');
-
         printWindow.document.open();
-        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(this.fileName('pdf').replace(/\.pdf$/i, ''))}</title><style>${styles}${this.pdfStyles()}</style></head><body>${clone.outerHTML}</body></html>`);
+
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>
+                        ${escapeReportHtml(
+                            this.fileName('pdf')
+                        )}
+                    </title>
+
+                    <style>
+                        ${this.reportStyles()}
+
+                        @page {
+                            size: landscape;
+                            margin: 0.25in;
+                        }
+
+                        html,
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            background: #090d16;
+                        }
+
+                        .dtt-export-sheet {
+                            width: 100% !important;
+                            padding: 12px !important;
+                        }
+
+                        .export-table {
+                            width: 100% !important;
+                        }
+
+                        thead {
+                            display: table-header-group;
+                        }
+
+                        tfoot {
+                            display: table-footer-group;
+                        }
+
+                        tr {
+                            break-inside: avoid;
+                            page-break-inside: avoid;
+                        }
+                    </style>
+                </head>
+
+                <body>
+                    ${report.outerHTML}
+                </body>
+            </html>
+        `);
+
         printWindow.document.close();
 
-        clone.remove();
-        printWindow.focus();
-        setTimeout(() => printWindow.print(), 350);
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 300);
     },
 
-    mountOffscreen(element) {
-        element.style.position = 'fixed';
-        element.style.left = '-100000px';
-        element.style.top = '0';
-        element.style.width = `${Math.max(document.documentElement.clientWidth, element.scrollWidth || 1200)}px`;
-        element.style.maxWidth = 'none';
-        element.style.overflow = 'visible';
-        element.style.background = '#090d16';
-        document.body.appendChild(element);
+    mount(report) {
+        report.style.position = 'absolute';
+        report.style.left = '-100000px';
+        report.style.top = '0';
+
+        document.body.appendChild(report);
     },
 
     fileName(extension) {
-        const mode = window.AppState?.currentMode || 'report';
-        const team = window.AppState?.selectedTeam && window.AppState.selectedTeam !== 'ALL'
-            ? `_${window.AppState.selectedTeam.replace(/[^a-z0-9]+/gi, '_')}`
-            : '';
+        const mode =
+            window.AppState?.currentMode ||
+            'report';
+
+        const team =
+            window.AppState?.selectedTeam &&
+            window.AppState.selectedTeam !== 'ALL'
+                ? `_${window.AppState.selectedTeam.replace(
+                    /[^a-z0-9]+/gi,
+                    '_'
+                )}`
+                : '';
+
         return `DTT_Performance_${mode}${team}.${extension}`;
     },
 
-    pdfStyles() {
+    reportStyles() {
         return `
-            @page { size: landscape; margin: 0.28in; }
-            html, body { margin: 0; padding: 0; background: #090d16; color: #f3f4f6; font-family: Arial, Helvetica, sans-serif; }
-            .dtt-export-report { width: max-content; min-width: 100%; background: #090d16; padding: 16px; box-sizing: border-box; }
-            .dtt-export-title { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; border-bottom:1px solid #263247; padding:0 0 12px; margin-bottom:12px; }
-            .dtt-export-kicker { font-size:9px; letter-spacing:.16em; color:#93a4bd; font-weight:700; }
-            .dtt-export-heading { font-size:20px; font-weight:800; margin-top:3px; color:#fff; }
-            .dtt-export-subheading, .dtt-export-meta { font-size:10px; color:#9aa8bb; }
-            .dtt-export-meta { text-align:right; max-width:38%; }
-            .dtt-export-report table { width:max-content; min-width:100%; border-collapse:collapse; table-layout:auto; }
-            .dtt-export-report th { background:#111827 !important; color:#d6deea !important; font-weight:700; font-size:9px; white-space:nowrap; padding:7px 8px !important; border:1px solid #273246 !important; }
-            .dtt-export-report td { background:#0d1322 !important; color:#e7edf5 !important; font-size:9px; white-space:nowrap; padding:6px 8px !important; border:1px solid #273246 !important; }
-            .dtt-export-report tr { break-inside:avoid; page-break-inside:avoid; }
-            .dtt-export-report .heat-red { background:rgba(239,68,68,.22) !important; color:#fecaca !important; }
-            .dtt-export-report .heat-yellow { background:rgba(245,158,11,.22) !important; color:#fde68a !important; }
-            .dtt-export-report .heat-green { background:rgba(16,185,129,.22) !important; color:#a7f3d0 !important; }
-            .dtt-export-report .rounded-2xl, .dtt-export-report .rounded-xl { border-radius:0 !important; }
-            .dtt-export-report > :not(.dtt-export-title) { max-height:none !important; }
-            .dtt-export-report section { border:1px solid #273246 !important; }
-            .dtt-export-report .bg-gray-900\\/90, .dtt-export-report .bg-gray-900\\/40, .dtt-export-report .bg-gray-900\\/50 { background:#111827 !important; }
-            .dtt-export-report .shadow, .dtt-export-report .shadow-lg, .dtt-export-report .shadow-xl, .dtt-export-report .shadow-2xl { box-shadow:none !important; }
-            .dtt-export-report .print-header { display:flex !important; }
+            * {
+                box-sizing: border-box;
+            }
+
+            .dtt-export-sheet {
+                background: #090d16;
+                color: #e5e7eb;
+                padding: 24px;
+                font-family:
+                    Arial,
+                    Helvetica,
+                    sans-serif;
+            }
+
+            .report-top {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 24px;
+
+                padding: 0 2px 16px;
+                margin-bottom: 14px;
+
+                border-bottom:
+                    1px solid #263247;
+            }
+
+            .report-kicker {
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: 0.18em;
+                color: #818cf8;
+                margin-bottom: 5px;
+            }
+
+            .report-top h1 {
+                margin: 0 0 5px;
+
+                font-size: 22px;
+                line-height: 1.15;
+                font-weight: 800;
+
+                color: #ffffff;
+            }
+
+            .report-subtitle {
+                font-size: 11px;
+                color: #9ca3af;
+            }
+
+            .report-legend {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 7px;
+
+                white-space: nowrap;
+            }
+
+            .legend {
+                font-size: 9px;
+                font-weight: 700;
+
+                border-radius: 5px;
+                padding: 5px 8px;
+
+                border: 1px solid;
+            }
+
+            .legend.red {
+                color: #fecaca;
+                background: #7f1d2d;
+                border-color: #9f2940;
+            }
+
+            .legend.yellow {
+                color: #fef3c7;
+                background: #73550b;
+                border-color: #92700c;
+            }
+
+            .legend.green {
+                color: #d1fae5;
+                background: #065f46;
+                border-color: #08775a;
+            }
+
+            .target {
+                font-size: 9px;
+                color: #9ca3af;
+                margin-left: 4px;
+            }
+
+            .export-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+
+                background: #0d1322;
+
+                border:
+                    1px solid #263247;
+            }
+
+            .export-table th,
+            .export-table td {
+                height: 34px;
+
+                border:
+                    1px solid #202b3d;
+
+                padding: 5px 8px;
+
+                vertical-align: middle;
+            }
+
+            .export-table th {
+                height: 38px;
+
+                background: #111827;
+
+                color: #cbd5e1;
+
+                font-size: 9px;
+                font-weight: 800;
+
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+
+            .export-table td {
+                font-size: 10px;
+            }
+
+            .rep-col {
+                text-align: left !important;
+                white-space: nowrap;
+
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .export-table td.rep-col {
+                font-weight: 600;
+                color: #e5e7eb;
+            }
+
+            .num-col {
+                text-align: center !important;
+
+                font-variant-numeric:
+                    tabular-nums;
+            }
+
+            .value-pill {
+                display: inline-flex;
+
+                align-items: center;
+                justify-content: center;
+
+                min-width: 50px;
+                height: 21px;
+
+                padding: 0 7px;
+
+                border-radius: 5px;
+
+                font-size: 9px;
+                font-weight: 700;
+            }
+
+            .heat-red {
+                background: #57202c;
+                color: #fda4af;
+                border: 1px solid #783142;
+            }
+
+            .heat-yellow {
+                background: #58430f;
+                color: #fde68a;
+                border: 1px solid #725817;
+            }
+
+            .heat-green {
+                background: #064e3b;
+                color: #6ee7b7;
+                border: 1px solid #087158;
+            }
+
+            .export-table tfoot td {
+                height: 38px;
+
+                background: #111827;
+
+                color: #dbeafe;
+
+                font-weight: 800;
+
+                border-top:
+                    2px solid #334155;
+            }
+
+            .export-table tfoot td:last-child {
+                color: #818cf8;
+            }
         `;
     }
 };
 
-function escapeHtml(value) {
+function escapeReportHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
