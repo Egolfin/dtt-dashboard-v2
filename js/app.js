@@ -83,7 +83,23 @@ window.app = {
             XLSX.writeFile(wb, "Manual_DTT_Records.xlsx");
         });
 
-        document.getElementById('exportPdfBtn')?.addEventListener('click', () => window.print());
+        document.getElementById('exportPdfBtn')?.addEventListener('click', () => {
+            try {
+                window.AppReportExport.printPdf();
+            } catch (error) {
+                console.error('PDF export failed:', error);
+                alert(`PDF export failed: ${error?.message || error}`);
+            }
+        });
+
+        document.getElementById('exportPngBtn')?.addEventListener('click', async () => {
+            try {
+                await window.AppReportExport.exportPng();
+            } catch (error) {
+                console.error('PNG export failed:', error);
+                alert(`PNG export failed: ${error?.message || error}`);
+            }
+        });
     },
 
     handleFile: function(file) {
