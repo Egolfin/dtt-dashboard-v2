@@ -23,13 +23,104 @@ window.AppState = {
 };
 
 const teamMapping = {
-    "Alejandro Bustos": ["Allen Hodgson","Walter Salazar","Alejandro Fonseca","Kevin Cordero","Valentina Henriquez","Esteban Robles","Cristhian Castro","Jose Gonzalez","Kiara Molina","Sharon Mora","Eduardo Murillo","Fabiana Quiros","Jeremy Chaves"],
-    "Emmanuel Jara": ["Bryan Garcia","Kiurwen West","Gareck Zuniga","Gareck Zuñiga","Sebastian Hernandez","Sergio Villegas","Erick Pacheco","Kiara Blanco","Valeria Carvajal","Alejandro Monge","Aaron Gomez","Aaron Gómez","Hector Arroyo","Felipe Sancho","Francis Viales"],
-    "Ericka Jimenez": ["David Cordero","Marcel Torres","Jorge Salgado","Jorge Zuniga","Jorge Zuñiga","Mariano Orozco","Yorlibeth Aguirre","Kenny Segura","Brenda Diaz","Jose Perez","Anthonny Castro","Josua Brown","Johayling Melendez"],
-    "Maria Jose Herrera": ["Sebastian Rodriguez","Valeria Quiros","Jean Carlo Torres","Jean Torres","Pablo Granados","Dylan Cordero","Jose Carmona","Mariela Chaves","Maria Diaz","Esteban Golfin","Neigel Solano","Frank Mesen","Jeremy Perez","Vito Nicollini"],
-    "Pamela Robles": ["Alvaro Brenes","Avaro Brenes","Tifanny Ramos","Catalina Garcia","Catalina García","Gerlin Rivera","Maria Ramirez","Ana Palacios","Mariana Gutierrez","Mariana Gutiérrez","Virginia Ardila","Hersan Sancho","Emmanuel Castillo","Dylan Rojas","Mario Mesen","Mario Mesén","Suann Monardez","Yoser Arley"],
-    "Samuel Soto": ["Orlando Steller"],
-    "Saúl Chaves": ["Bruno Lara","Santiago Ramirez","Ricardo Urena","Ricardo Ureña","Maricela Miranda","Alvaro Porras","Camila Zeledon","Victoria Castillo","Juan Hernandez","Sergio Rosales","Pablo Cantillo","Pablo Cantillo Ramirez","Joshua Nunez","Joshua Nuñez","Marck Ali","Ruben Delgado"]
+    "Alejandro Bustos": [
+        "Allen Hodgson",
+        "Walter Salazar",
+        "Alejandro Fonseca",
+        "Kevin Cordero",
+        "Valentina Henriquez",
+        "Esteban Robles",
+        "Cristhian Castro",
+        "Jose Gonzalez",
+        "Kiara Molina",
+        "Sharon Mora",
+        "Fabiana Quiros",
+        "Mario Mesén"
+    ],
+
+    "Emmanuel Jara": [
+        "Kiurwen West",
+        "Gareck Zuniga",
+        "Sebastian Hernandez",
+        "David Cordero",
+        "Sergio Villegas",
+        "Jose Carmona",
+        "Erick Josué Pacheco Fernández",
+        "Kiara Blanco",
+        "Aaron Gómez",
+        "Hector Arroyo",
+        "Francis Viales",
+        "Jar Lee Obando",
+        "Kendrik Castro"
+    ],
+
+    "Ericka Jimenez": [
+        "Jean Torres",
+        "Marcel Torres",
+        "Jorge Salgado",
+        "Jorge Zuniga",
+        "Kenny Segura",
+        "Brenda Diaz",
+        "Jose Perez",
+        "Mariano Orozco",
+        "Joshua Nunez",
+        "Josua Brown",
+        "Johayling Melendez",
+        "Alejandro Ruiz"
+    ],
+
+    "Jeremy Chaves": [
+        "Valeria Quiros",
+        "Pablo Granados",
+        "Dylan Cordero",
+        "Mariela Chaves",
+        "Maria Diaz",
+        "Neigel Solano",
+        "Valeria Carvajal",
+        "Alejandro Monge",
+        "Frank Mesen",
+        "Jeremy Perez",
+        "Melanie Madrigal",
+        "Sergio Cespedes",
+        "Juan Cortes"
+    ],
+
+    "Luis Rojas": [
+        "Bruno Lara",
+        "Santiago Ramirez",
+        "Maricela Miranda",
+        "Camila Zeledon",
+        "Juan Hernandez",
+        "Sergio Rosales",
+        "Pablo Cantillo",
+        "Eduardo Murillo",
+        "Emmanuel Castillo",
+        "Dylan Rojas",
+        "Yoser Arley",
+        "Bryan Castillo"
+    ],
+
+    "Pamela Robles": [],
+
+    "Samuel Soto": [
+        "Orlando Steller"
+    ],
+
+    "Saúl Chaves": [
+        "Avaro Brenes",
+        "Tifanny Ramos",
+        "Catalina Garcia",
+        "Gerlin Rivera",
+        "Maria Ramirez",
+        "Ana Palacios",
+        "Alvaro Porras",
+        "Victoria Castillo",
+        "Virginia Ardila",
+        "Esteban Golfin",
+        "Hersan Sancho",
+        "Monardez Suann",
+        "Luis Retana"
+    ]
 };
 
 function normalizeName(str) {
