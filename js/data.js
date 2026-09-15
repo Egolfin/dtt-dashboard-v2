@@ -98,12 +98,7 @@ const teamMapping = {
         "Dylan Rojas",
         "Yoser Arley",
         "Bryan Castillo"
-    ],
 
-    "Pamela Robles": [],
-
-    "Samuel Soto": [
-        "Orlando Steller"
     ],
 
     "Saúl Chaves": [
