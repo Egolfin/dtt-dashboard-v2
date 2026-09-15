@@ -1,0 +1,33 @@
+name: Fix PNG export viewport clipping
+on:
+  push:
+    branches: [update-team-distro]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix PNG export viewport clipping') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch PNG exporter
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('js/report-export.js')
+          s = p.read_text()
+          s = s.replace("report.style.width = `${reportWidth}px`;", "report.style.width = 'fit-content';\n        report.style.maxWidth = 'none';")
+          s = s.replace("width: report.offsetWidth,\n                height: report.offsetHeight,\n                windowWidth: report.offsetWidth,\n                windowHeight: report.offsetHeight,", "width: Math.ceil(report.scrollWidth),\n                height: Math.ceil(report.scrollHeight),\n                windowWidth: Math.ceil(report.scrollWidth),\n                windowHeight: Math.ceil(report.scrollHeight),")
+          s = s.replace("link.href = canvas.toDataURL('image/png');", "link.href = canvas.toDataURL('image/png');")
+          p.write_text(s)
+          PY
+          sed -i 's/report-export.js?v=3/report-export.js?v=4/' index.html
+      - name: Commit fix
+        run: |
+          rm .github/workflows/fix-png-export.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/report-export.js index.html .github/workflows/fix-png-export.yml
+          git diff --cached --check
+          git commit -m "Fix PNG export viewport clipping"
+          git push origin HEAD:update-team-distro
