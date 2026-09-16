@@ -1,0 +1,1 @@
+PNG export fix scope: only the export renderer is being adjusted. The live DTT matrix, calculations, filters, and data processing remain unchanged. The export canvas is rendered from the report at the document origin instead of -100000px offscreen, and html2canvas receives the report's full scroll dimensions.
