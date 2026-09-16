@@ -1,0 +1,31 @@
+name: Apply PNG crop fix
+on:
+  push:
+    branches: [fix-png-crop-v2]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ github.event.head_commit.message != 'Fix PNG full-width capture' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: python
+        run: |
+          from pathlib import Path
+          p=Path('js/report-export.js')
+          s=p.read_text()
+          s=s.replace("width: report.offsetWidth,\n                    height: report.offsetHeight,\n                    windowWidth: report.offsetWidth,\n                    windowHeight: report.offsetHeight,", "width: report.scrollWidth,\n                    height: report.scrollHeight,\n                    windowWidth: Math.max(report.scrollWidth, document.documentElement.clientWidth),\n                    windowHeight: Math.max(report.scrollHeight, document.documentElement.clientHeight),")
+          s=s.replace("report.style.position = 'absolute';\n        report.style.left = '-100000px';\n        report.style.top = '0';", "report.style.position = 'fixed';\n        report.style.left = '0';\n        report.style.top = '0';\n        report.style.zIndex = '-2147483647';\n        report.style.pointerEvents = 'none';\n        report.style.overflow = 'visible';")
+          p.write_text(s)
+          i=Path('index.html')
+          x=i.read_text().replace('js/report-export.js?v=3','js/report-export.js?v=4')
+          i.write_text(x)
+      - run: |
+          rm .github/workflows/fix-png-crop.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/report-export.js index.html .github/workflows/fix-png-crop.yml
+          git diff --cached --check
+          git commit -m "Fix PNG full-width capture"
+          git push origin HEAD:fix-png-crop-v2
