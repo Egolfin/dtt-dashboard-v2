@@ -179,10 +179,10 @@ window.AppReportExport = {
                     scale: 2,
                     useCORS: true,
                     logging: false,
-                    width: report.offsetWidth,
-                    height: report.offsetHeight,
-                    windowWidth: report.offsetWidth,
-                    windowHeight: report.offsetHeight,
+                    width: report.scrollWidth,
+                    height: report.scrollHeight,
+                    windowWidth: Math.max(report.scrollWidth, document.documentElement.clientWidth),
+                    windowHeight: Math.max(report.scrollHeight, document.documentElement.clientHeight),
                     scrollX: 0,
                     scrollY: 0
                 });
@@ -277,9 +277,12 @@ window.AppReportExport = {
     },
 
     mount(report) {
-        report.style.position = 'absolute';
-        report.style.left = '-100000px';
+        report.style.position = 'fixed';
+        report.style.left = '0';
         report.style.top = '0';
+        report.style.zIndex = '-2147483647';
+        report.style.pointerEvents = 'none';
+        report.style.overflow = 'visible';
 
         document.body.appendChild(report);
     },
